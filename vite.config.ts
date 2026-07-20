@@ -12,8 +12,8 @@ export default defineConfig({
         name: 'Pitch Tracker',
         short_name: 'PitchTrack',
         description: 'Softball pitch tracking and scouting',
-        theme_color: '#0f172a',
-        background_color: '#0f172a',
+        theme_color: '#000000',
+        background_color: '#000000',
         display: 'standalone',
         icons: [
           { src: 'pwa-192.png', sizes: '192x192', type: 'image/png' },
