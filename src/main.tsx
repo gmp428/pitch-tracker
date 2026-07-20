@@ -33,6 +33,10 @@ const router = createHashRouter([
   },
 ])
 
+// Ask the browser to protect our storage from being evicted under disk pressure.
+// (Granted automatically for installed/home-screen PWAs on most platforms.)
+navigator.storage?.persist?.().catch(() => {})
+
 createRoot(document.getElementById('root')!).render(
   <StrictMode>
     <RouterProvider router={router} />
