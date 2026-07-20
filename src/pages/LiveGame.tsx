@@ -1,8 +1,8 @@
-import { useState } from 'react'
+import { useEffect, useState } from 'react'
 import { useNavigate, useParams } from 'react-router-dom'
 import { useLiveQuery } from 'dexie-react-hooks'
 import {
-  db, resultLabel,
+  db, pitcherArsenal, resultLabel,
   type AtBatOutcome, type Batter, type InPlayOutcome, type Pitch, type PitchResult, type Zone,
 } from '../db'
 import ZoneGrid from '../components/ZoneGrid'
@@ -38,10 +38,16 @@ export default function LiveGame() {
   const [selZone, setSelZone] = useState<Zone | null>(null)
   const [showInPlay, setShowInPlay] = useState(false)
 
+  // If a pitcher change removes the selected pitch type from the arsenal, clear it
+  useEffect(() => {
+    setSelType(null)
+  }, [game?.currentPitcherId])
+
   if (!game || !opponent || !roster || !pitchers || !pitchTypes) return null
 
   const batter = openAtBat ? roster.find((b) => b.id === openAtBat.batterId) : undefined
   const currentPitcher = pitchers.find((p) => p.id === game.currentPitcherId)
+  const arsenal = pitcherArsenal(currentPitcher, pitchTypes)
 
   // Replay the at-bat to get the current count (foul with 2 strikes doesn't add a strike)
   let balls = 0
@@ -185,7 +191,7 @@ export default function LiveGame() {
 
           <h3>1. Pitch type</h3>
           <div className="chips">
-            {pitchTypes.map((t) => (
+            {arsenal.map((t) => (
               <button key={t.id} className={`chip ${selType === t.id ? 'on' : ''}`} onClick={() => setSelType(t.id)}>
                 {t.name}
               </button>

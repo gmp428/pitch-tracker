@@ -1,16 +1,23 @@
-import { useState } from 'react'
+import { useEffect, useState } from 'react'
 import { Link } from 'react-router-dom'
 import { useLiveQuery } from 'dexie-react-hooks'
-import { db } from '../db'
+import { db, pitcherArsenal } from '../db'
 
 export default function Pitchers() {
   const pitchers = useLiveQuery(() => db.pitchers.toArray(), [])
+  const pitchTypes = useLiveQuery(() => db.pitchTypes.toArray(), [])
 
   const [editingId, setEditingId] = useState<number | null>(null)
   const [name, setName] = useState('')
   const [number, setNumber] = useState('')
   const [throws, setThrows] = useState<'L' | 'R'>('R')
   const [notes, setNotes] = useState('')
+  const [arsenal, setArsenal] = useState<number[] | null>(null) // null = not yet initialized
+
+  // Default a fresh form's arsenal to every pitch type once they load
+  useEffect(() => {
+    if (arsenal === null && pitchTypes) setArsenal(pitchTypes.map((t) => t.id))
+  }, [arsenal, pitchTypes])
 
   const resetForm = () => {
     setEditingId(null)
@@ -18,16 +25,31 @@ export default function Pitchers() {
     setNumber('')
     setThrows('R')
     setNotes('')
+    setArsenal(pitchTypes?.map((t) => t.id) ?? null)
+  }
+
+  const toggleArsenal = (id: number) => {
+    setArsenal((a) => {
+      const cur = a ?? []
+      return cur.includes(id) ? cur.filter((x) => x !== id) : [...cur, id]
+    })
   }
 
   const save = async (e: React.FormEvent) => {
     e.preventDefault()
     const trimmed = name.trim()
     if (!trimmed) return
+    const record = {
+      name: trimmed,
+      number: number.trim(),
+      throws,
+      notes: notes.trim(),
+      pitchTypeIds: arsenal ?? [],
+    }
     if (editingId !== null) {
-      await db.pitchers.update(editingId, { name: trimmed, number: number.trim(), throws, notes: notes.trim() })
+      await db.pitchers.update(editingId, record)
     } else {
-      await db.pitchers.add({ name: trimmed, number: number.trim(), throws, notes: notes.trim() })
+      await db.pitchers.add(record as never)
     }
     resetForm()
   }
@@ -40,6 +62,7 @@ export default function Pitchers() {
     setNumber(p.number ?? '')
     setThrows(p.throws)
     setNotes(p.notes ?? '')
+    setArsenal(pitcherArsenal(p, pitchTypes ?? []).map((t) => t.id))
   }
 
   const remove = async (pitcherId: number) => {
@@ -51,7 +74,13 @@ export default function Pitchers() {
     if (confirm('Delete this pitcher?')) await db.pitchers.delete(pitcherId)
   }
 
-  if (!pitchers) return null
+  if (!pitchers || !pitchTypes) return null
+  const arsenalSel = arsenal ?? []
+
+  const arsenalLabel = (p: (typeof pitchers)[number]) => {
+    const list = pitcherArsenal(p, pitchTypes)
+    return list.length === pitchTypes.length ? 'all pitches' : list.map((t) => t.abbr).join(' ')
+  }
 
   return (
     <main>
@@ -66,7 +95,8 @@ export default function Pitchers() {
         {pitchers.map((p) => (
           <div key={p.id} className="list-item">
             <Link to={`/pitcher/${p.id}`} className="grow" style={{ color: 'var(--text)' }}>
-              {p.number ? `#${p.number} ` : ''}{p.name} <span className="pill">throws {p.throws}</span>
+              {p.number ? `#${p.number} ` : ''}{p.name} <span className="pill">throws {p.throws}</span>{' '}
+              <span className="pill">{arsenalLabel(p)}</span>
             </Link>
             <button className="small" onClick={() => startEdit(p.id)}>Edit</button>
             <button className="small danger" onClick={() => remove(p.id)}>✕</button>
@@ -90,6 +120,24 @@ export default function Pitchers() {
           <label style={{ margin: 0 }}>Throws:</label>
           <button type="button" className={`chip ${throws === 'R' ? 'on' : ''}`} onClick={() => setThrows('R')}>Right</button>
           <button type="button" className={`chip ${throws === 'L' ? 'on' : ''}`} onClick={() => setThrows('L')}>Left</button>
+        </div>
+        <div>
+          <label>Pitches this pitcher throws</label>
+          <div className="chips" style={{ margin: '4px 0 0' }}>
+            {pitchTypes.map((t) => (
+              <button
+                key={t.id}
+                type="button"
+                className={`chip ${arsenalSel.includes(t.id) ? 'on' : ''}`}
+                onClick={() => toggleArsenal(t.id)}
+              >
+                {t.name}
+              </button>
+            ))}
+          </div>
+          {arsenalSel.length === 0 && (
+            <p className="muted" style={{ margin: '4px 0 0' }}>None selected = all pitches allowed.</p>
+          )}
         </div>
         <div>
           <label>Notes (optional)</label>

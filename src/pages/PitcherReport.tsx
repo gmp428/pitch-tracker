@@ -1,7 +1,7 @@
 import { useState } from 'react'
 import { Link, useParams } from 'react-router-dom'
 import { useLiveQuery } from 'dexie-react-hooks'
-import { db } from '../db'
+import { db, pitcherArsenal } from '../db'
 import ZoneGrid from '../components/ZoneGrid'
 import {
   aggregate, byPitchType, byZone, filterByWindow, pct, successRate,
@@ -41,6 +41,9 @@ export default function PitcherReport() {
         {pitcher.number ? `#${pitcher.number} ` : ''}{pitcher.name}{' '}
         <span className="pill">throws {pitcher.throws}</span>
       </h1>
+      <p className="muted">
+        Arsenal: {pitcherArsenal(pitcher, pitchTypes).map((t) => t.name).join(', ')}
+      </p>
       {pitcher.notes && <p className="muted">📝 {pitcher.notes}</p>}
 
       <div className="chips">

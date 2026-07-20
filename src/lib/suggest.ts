@@ -70,9 +70,16 @@ export function suggestPitch(args: {
   batter: Batter
   allBatters: Batter[]
   currentPitcherId?: number
+  // Restrict suggestions to the current pitcher's arsenal
+  allowedPitchTypeIds?: Set<number>
 }): SuggestionResult | null {
-  const { allPitches, allGames, batter, allBatters, currentPitcherId } = args
+  const { allGames, batter, allBatters, currentPitcherId, allowedPitchTypeIds } = args
   const gameRecency = new Map(orderGamesNewestFirst(allGames).map((id, i) => [id, i]))
+
+  // Never suggest a pitch the current pitcher can't throw
+  const allPitches = allowedPitchTypeIds
+    ? args.allPitches.filter((p) => allowedPitchTypeIds.has(p.pitchTypeId))
+    : args.allPitches
 
   // Tier 1: this batter vs. the current pitcher
   if (currentPitcherId !== undefined) {

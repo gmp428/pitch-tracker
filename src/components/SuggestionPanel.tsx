@@ -1,6 +1,6 @@
 import { Link } from 'react-router-dom'
 import { useLiveQuery } from 'dexie-react-hooks'
-import { db, zoneLabel, type Batter } from '../db'
+import { db, pitcherArsenal, zoneLabel, type Batter } from '../db'
 import { pct } from '../lib/stats'
 import { suggestPitch, TIER_LABELS } from '../lib/suggest'
 
@@ -9,9 +9,16 @@ export default function SuggestionPanel({ batter, currentPitcherId }: { batter: 
   const allGames = useLiveQuery(() => db.games.toArray(), [])
   const allBatters = useLiveQuery(() => db.batters.toArray(), [])
   const pitchTypes = useLiveQuery(() => db.pitchTypes.toArray(), [])
+  const currentPitcher = useLiveQuery(
+    () => (currentPitcherId !== undefined ? db.pitchers.get(currentPitcherId) : undefined),
+    [currentPitcherId],
+  )
   if (!allPitches || !allGames || !allBatters || !pitchTypes) return null
 
-  const result = suggestPitch({ allPitches, allGames, batter, allBatters, currentPitcherId })
+  const allowedPitchTypeIds = currentPitcher
+    ? new Set(pitcherArsenal(currentPitcher, pitchTypes).map((t) => t.id))
+    : undefined
+  const result = suggestPitch({ allPitches, allGames, batter, allBatters, currentPitcherId, allowedPitchTypeIds })
   const typeName = (id: number) => pitchTypes.find((t) => t.id === id)?.name ?? '?'
 
   if (!result) {

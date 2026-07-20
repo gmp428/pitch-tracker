@@ -22,6 +22,16 @@ export interface Pitcher {
   number?: string
   throws: 'L' | 'R'
   notes?: string
+  // Pitch types this pitcher can throw. Undefined or empty = all pitch types
+  // (covers pitchers created before arsenals existed).
+  pitchTypeIds?: number[]
+}
+
+export function pitcherArsenal(pitcher: Pitcher | undefined, allTypes: PitchType[]): PitchType[] {
+  if (!pitcher?.pitchTypeIds || pitcher.pitchTypeIds.length === 0) return allTypes
+  const allowed = new Set(pitcher.pitchTypeIds)
+  const arsenal = allTypes.filter((t) => allowed.has(t.id))
+  return arsenal.length > 0 ? arsenal : allTypes
 }
 
 export interface PitchType {
