@@ -4,7 +4,7 @@ import { useLiveQuery } from 'dexie-react-hooks'
 import { db, pitcherArsenal } from '../db'
 import ZoneGrid from '../components/ZoneGrid'
 import {
-  aggregate, byPitchType, byZone, filterByWindow, pct, successRate,
+  aggregate, byPitchType, byZoneBattle, filterByWindow, pct, successRate,
   WINDOW_LABELS, type TimeWindow,
 } from '../lib/stats'
 
@@ -27,7 +27,7 @@ export default function PitcherReport() {
   const viewPitches = filterByWindow(pitches, allGames, win)
   const overall = aggregate(viewPitches)
   const typeAggs = byPitchType(viewPitches)
-  const heat = byZone(viewPitches)
+  const heat = byZoneBattle(viewPitches)
 
   // Per-batter results for this pitcher
   const byBatter = new Map<number, typeof overall>()

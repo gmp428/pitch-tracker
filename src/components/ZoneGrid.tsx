@@ -1,13 +1,14 @@
 import type { Zone } from '../db'
-import type { Agg } from '../lib/stats'
-import { successRate } from '../lib/stats'
+import type { BattleAgg } from '../lib/stats'
+import { battleRate } from '../lib/stats'
 
 // Strike zone from the catcher's point of view: a 3x3 in-zone grid surrounded
 // by four out-of-zone strips (high / low / left / right).
 //
-// select mode: tap a region to choose where the pitch went.
-// heat mode: regions are colored by how well pitches there worked for us
-// (green = strikes/outs, red = hits), with the pitch count in each region.
+// Tap to choose where a pitch went (when onSelect is given), and/or color the
+// regions by how the battle went there (when heat is given) — green = our
+// pitch won (strikes, fouls, outs), red = they hit it. Both can be active at
+// once: during a game the grid is a heat map AND the location picker.
 
 const CELLS: Array<{ zone: Zone; style: React.CSSProperties; label?: string }> = [
   { zone: 'o-up', style: { gridColumn: '2 / 5', gridRow: '1' }, label: '↑' },
@@ -28,13 +29,13 @@ const CELLS: Array<{ zone: Zone; style: React.CSSProperties; label?: string }> =
 function heatColor(rate: number): string {
   // 0 = red (they hit it), 1 = green (we won the pitch)
   const hue = Math.round(rate * 120)
-  return `hsl(${hue}, 55%, 32%)`
+  return `hsl(${hue}, 55%, 30%)`
 }
 
 export default function ZoneGrid(props: {
   selected?: Zone | null
   onSelect?: (z: Zone) => void
-  heat?: Map<Zone, Agg>
+  heat?: Map<Zone, BattleAgg>
   compact?: boolean
 }) {
   const { selected, onSelect, heat, compact } = props
@@ -47,9 +48,11 @@ export default function ZoneGrid(props: {
         if (heat) {
           const agg = heat.get(zone)
           if (agg && agg.total > 0) {
-            bg = heatColor(successRate(agg))
+            const rate = battleRate(agg)
+            bg = rate === null ? '#2b2b2b' : heatColor(rate)
             text = String(agg.total)
-          } else {
+          } else if (!onSelect) {
+            // pure heat map (report pages): blank empty cells
             text = ''
           }
         }

@@ -7,6 +7,7 @@ import {
 } from '../db'
 import ZoneGrid from '../components/ZoneGrid'
 import SuggestionPanel from '../components/SuggestionPanel'
+import { battleAgg, battleRate, byZoneBattle, outcomeBreakdown, pct } from '../lib/stats'
 
 export default function LiveGame() {
   const { id } = useParams()
@@ -33,15 +34,27 @@ export default function LiveGame() {
     [openAtBat?.id],
   )
   const gamePitchCount = useLiveQuery(() => db.pitches.where('gameId').equals(gameId).count(), [gameId])
+  // All history on the current batter, live-updating as pitches are logged
+  const batterHistory = useLiveQuery(
+    () => (openAtBat ? db.pitches.where('batterId').equals(openAtBat.batterId).toArray() : Promise.resolve([] as Pitch[])),
+    [openAtBat?.batterId],
+  )
 
   const [selType, setSelType] = useState<number | null>(null)
   const [selZone, setSelZone] = useState<Zone | null>(null)
   const [showInPlay, setShowInPlay] = useState(false)
+  // Which history pool the in-game stats draw from
+  const [scope, setScope] = useState<'all' | 'pitcher'>('all')
 
   // If a pitcher change removes the selected pitch type from the arsenal, clear it
   useEffect(() => {
     setSelType(null)
   }, [game?.currentPitcherId])
+
+  // Fresh batter, reset the stat scope to the safe default
+  useEffect(() => {
+    setScope('all')
+  }, [openAtBat?.batterId])
 
   if (!game || !opponent || !roster || !pitchers || !pitchTypes) return null
 
@@ -177,29 +190,84 @@ export default function LiveGame() {
         </>
       )}
 
-      {openAtBat && batter && (
+      {openAtBat && batter && (() => {
+        // Scope the batter's history to the chosen pool
+        const history = batterHistory ?? []
+        const scoped = scope === 'pitcher'
+          ? history.filter((p) => p.pitcherId === game.currentPitcherId)
+          : history
+        const vsPitcherCount = history.filter((p) => p.pitcherId === game.currentPitcherId).length
+        const heatPitches = selType !== null ? scoped.filter((p) => p.pitchTypeId === selType) : []
+        const heat = heatPitches.length > 0 ? byZoneBattle(heatPitches) : undefined
+        return (
         <>
-          <div className="card row spread">
-            <div>
-              <div style={{ fontWeight: 700 }}>{batter.number ? `#${batter.number} ` : ''}{batter.name}</div>
-              <div className="muted">bats {batter.bats} · vs {currentPitcher?.name ?? '?'}</div>
+          <div className="card">
+            <div className="row spread">
+              <div>
+                <div style={{ fontWeight: 700 }}>{batter.number ? `#${batter.number} ` : ''}{batter.name}</div>
+                <div className="muted">bats {batter.bats} · vs {currentPitcher?.name ?? '?'}</div>
+              </div>
+              <div className="count-display">{balls}-{strikes}</div>
             </div>
-            <div className="count-display">{balls}-{strikes}</div>
+            {history.length > 0 && (
+              <div className="chips" style={{ margin: '8px 0 0' }}>
+                <button
+                  className={`chip small-chip ${scope === 'all' ? 'on' : ''}`}
+                  onClick={() => setScope('all')}
+                >
+                  All pitchers ({history.length})
+                </button>
+                <button
+                  className={`chip small-chip ${scope === 'pitcher' ? 'on' : ''}`}
+                  onClick={() => setScope('pitcher')}
+                  disabled={vsPitcherCount === 0}
+                >
+                  vs {currentPitcher?.name ?? '?'} ({vsPitcherCount})
+                </button>
+              </div>
+            )}
           </div>
 
           <SuggestionPanel batter={batter} currentPitcherId={game.currentPitcherId} />
 
-          <h3>1. Pitch type</h3>
-          <div className="chips">
-            {arsenal.map((t) => (
-              <button key={t.id} className={`chip ${selType === t.id ? 'on' : ''}`} onClick={() => setSelType(t.id)}>
-                {t.name}
-              </button>
-            ))}
+          <h3>1. Pitch type {scoped.length > 0 && <span className="muted" style={{ textTransform: 'none' }}>— {batter.name}’s history per pitch</span>}</h3>
+          <div className="stack">
+            {arsenal.map((t) => {
+              const tp = scoped.filter((p) => p.pitchTypeId === t.id)
+              const rate = battleRate(battleAgg(tp))
+              const top3 = outcomeBreakdown(tp).slice(0, 3)
+              return (
+                <button
+                  key={t.id}
+                  className={`pitch-stat ${selType === t.id ? 'on' : ''}`}
+                  onClick={() => setSelType(t.id)}
+                >
+                  <span className="row spread">
+                    <strong>{t.name}</strong>
+                    <span className="muted">{tp.length > 0 ? `${tp.length} seen` : 'no data'}</span>
+                  </span>
+                  {rate !== null && (
+                    <span className="winbar" aria-hidden="true">
+                      <span style={{ width: `${Math.round(rate * 100)}%` }} />
+                    </span>
+                  )}
+                  {top3.length > 0 && (
+                    <span className="muted breakdown">
+                      {top3.map((s) => `${s.label} ${pct(s.pct)}`).join(' · ')}
+                    </span>
+                  )}
+                </button>
+              )
+            })}
           </div>
 
-          <h3>2. Location</h3>
-          <ZoneGrid selected={selZone} onSelect={setSelZone} />
+          <h3>2. Location {heat && <span className="muted" style={{ textTransform: 'none' }}>— where this pitch has worked</span>}</h3>
+          <ZoneGrid selected={selZone} onSelect={setSelZone} heat={heat} />
+          {heat && (
+            <p className="muted" style={{ textAlign: 'center', margin: '0 0 8px' }}>
+              Green = our pitch won · red = they hit it · number = pitches there
+            </p>
+          )}
 
           <h3>3. Result</h3>
           {selType === null || selZone === null ? (
@@ -234,7 +302,8 @@ export default function LiveGame() {
             </>
           )}
         </>
-      )}
+        )
+      })()}
     </main>
   )
 }

@@ -4,6 +4,7 @@ import { createHashRouter, RouterProvider } from 'react-router-dom'
 import './index.css'
 import App from './App'
 import Home from './pages/Home'
+import Teams from './pages/Teams'
 import Roster from './pages/Roster'
 import Pitchers from './pages/Pitchers'
 import PitcherReport from './pages/PitcherReport'
@@ -20,6 +21,7 @@ const router = createHashRouter([
     element: <App />,
     children: [
       { index: true, element: <Home /> },
+      { path: 'teams', element: <Teams /> },
       { path: 'opponent/:id', element: <Roster /> },
       { path: 'pitchers', element: <Pitchers /> },
       { path: 'pitcher/:id', element: <PitcherReport /> },

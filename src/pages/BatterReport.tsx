@@ -4,7 +4,7 @@ import { useLiveQuery } from 'dexie-react-hooks'
 import { db, outcomeLabel } from '../db'
 import ZoneGrid from '../components/ZoneGrid'
 import {
-  aggregate, byPitcher, byPitchType, byZone, filterByWindow, gameIdsForWindow,
+  aggregate, byPitcher, byPitchType, byZoneBattle, filterByWindow, gameIdsForWindow,
   pct, successRate, WINDOW_LABELS, type TimeWindow,
 } from '../lib/stats'
 
@@ -36,7 +36,7 @@ export default function BatterReport() {
     : windowPitches.filter((p) => p.pitcherId === pitcherFilter)
 
   const overall = aggregate(viewPitches)
-  const heat = byZone(viewPitches)
+  const heat = byZoneBattle(viewPitches)
   const typeAggs = byPitchType(viewPitches)
   const matchups = byPitcher(windowPitches)
 
@@ -88,7 +88,7 @@ export default function BatterReport() {
           </div>
 
           <h2>Zone heat map</h2>
-          <p className="muted">Green = strikes &amp; outs for us, red = they hit it. Number = pitches there.</p>
+          <p className="muted">Green = our pitch won (strikes, fouls, outs), red = they hit it. Number = pitches there.</p>
           <ZoneGrid heat={heat} />
 
           <h2>By pitch type</h2>

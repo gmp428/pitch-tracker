@@ -141,6 +141,32 @@ label { font-size: 0.85rem; color: var(--muted); display: block; margin-bottom: 
 
 /* Live game */
 .count-display { font-size: 1.6rem; font-weight: 700; letter-spacing: 0.05em; }
+.chip.small-chip { min-height: 32px; padding: 5px 12px; font-size: 0.8rem; }
+
+/* Per-pitch scouting buttons */
+.pitch-stat {
+  display: flex;
+  flex-direction: column;
+  align-items: stretch;
+  gap: 5px;
+  text-align: left;
+  padding: 10px 12px;
+}
+.pitch-stat.on { outline: 3px solid var(--accent); outline-offset: -1px; }
+.pitch-stat .breakdown { font-size: 0.8rem; }
+.winbar {
+  display: block;
+  height: 6px;
+  border-radius: 3px;
+  background: #532626;
+  overflow: hidden;
+}
+.winbar > span {
+  display: block;
+  height: 100%;
+  background: var(--good);
+  border-radius: 3px;
+}
 .result-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; }
 .result-grid .wide { grid-column: 1 / -1; }
 

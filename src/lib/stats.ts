@@ -104,3 +104,66 @@ export function byPitcher(pitches: Pitch[]): Map<number, Agg> {
 export function pct(n: number): string {
   return `${Math.round(n * 100)}%`
 }
+
+// ---------- "Battle" view: who won the pitch ----------
+// good = we won it (called strike, whiff, foul, in-play out)
+// bad  = they won it (hit, reached on error)
+// balls are neutral (neither side "won" the pitch)
+
+export interface BattleAgg {
+  good: number
+  bad: number
+  balls: number
+  total: number
+}
+
+export function battleAgg(pitches: Pitch[]): BattleAgg {
+  const a: BattleAgg = { good: 0, bad: 0, balls: 0, total: 0 }
+  for (const p of pitches) {
+    a.total++
+    if (p.result === 'ball') a.balls++
+    else if (p.result === 'in_play' && p.inPlay !== 'out') a.bad++
+    else a.good++
+  }
+  return a
+}
+
+// null when there's nothing decisive to rate (only balls, or no pitches)
+export function battleRate(a: BattleAgg): number | null {
+  return a.good + a.bad === 0 ? null : a.good / (a.good + a.bad)
+}
+
+export function byZoneBattle(pitches: Pitch[]): Map<Zone, BattleAgg> {
+  const m = new Map<Zone, Pitch[]>()
+  for (const p of pitches) {
+    const arr = m.get(p.zone)
+    if (arr) arr.push(p)
+    else m.set(p.zone, [p])
+  }
+  return new Map([...m].map(([k, v]) => [k, battleAgg(v)]))
+}
+
+// ---------- Outcome breakdown for the per-pitch stat buttons ----------
+
+export interface OutcomeSlice {
+  label: string
+  count: number
+  pct: number // 0..1 of all pitches in the group
+}
+
+export function outcomeBreakdown(pitches: Pitch[]): OutcomeSlice[] {
+  if (pitches.length === 0) return []
+  const buckets: Record<string, number> = {}
+  const bump = (label: string) => { buckets[label] = (buckets[label] ?? 0) + 1 }
+  for (const p of pitches) {
+    if (p.result === 'ball') bump('Ball')
+    else if (p.result === 'called_strike') bump('Called K')
+    else if (p.result === 'swinging_strike') bump('Whiff')
+    else if (p.result === 'foul') bump('Foul')
+    else if (p.inPlay === 'out') bump('Out')
+    else bump('Hit')
+  }
+  return Object.entries(buckets)
+    .map(([label, count]) => ({ label, count, pct: count / pitches.length }))
+    .sort((a, b) => b.count - a.count)
+}
