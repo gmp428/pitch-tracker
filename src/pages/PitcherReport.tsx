@@ -1,5 +1,5 @@
 import { useState } from 'react'
-import { Link, useParams } from 'react-router-dom'
+import { Link, useNavigate, useParams } from 'react-router-dom'
 import { useLiveQuery } from 'dexie-react-hooks'
 import { db, pitcherArsenal } from '../db'
 import ZoneGrid from '../components/ZoneGrid'
@@ -13,6 +13,7 @@ const WINDOWS: TimeWindow[] = ['last1', 'last3', 'all']
 export default function PitcherReport() {
   const { id } = useParams()
   const pitcherId = Number(id)
+  const navigate = useNavigate()
 
   const pitcher = useLiveQuery(() => db.pitchers.get(pitcherId), [pitcherId])
   const pitches = useLiveQuery(() => db.pitches.where('pitcherId').equals(pitcherId).toArray(), [pitcherId])
@@ -37,6 +38,7 @@ export default function PitcherReport() {
 
   return (
     <main>
+      <button className="small" style={{ marginTop: 10 }} onClick={() => navigate(-1)}>‹ Back</button>
       <h1>
         {pitcher.number ? `#${pitcher.number} ` : ''}{pitcher.name}{' '}
         <span className="pill">throws {pitcher.throws}</span>

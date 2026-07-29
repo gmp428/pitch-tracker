@@ -1,5 +1,5 @@
 import { useState } from 'react'
-import { Link, useParams } from 'react-router-dom'
+import { Link, useNavigate, useParams } from 'react-router-dom'
 import { useLiveQuery } from 'dexie-react-hooks'
 import { db, outcomeLabel } from '../db'
 import ZoneGrid from '../components/ZoneGrid'
@@ -13,6 +13,7 @@ const WINDOWS: TimeWindow[] = ['last1', 'last3', 'all']
 export default function BatterReport() {
   const { id } = useParams()
   const batterId = Number(id)
+  const navigate = useNavigate()
 
   const batter = useLiveQuery(() => db.batters.get(batterId), [batterId])
   const opponent = useLiveQuery(
@@ -52,6 +53,7 @@ export default function BatterReport() {
 
   return (
     <main>
+      <button className="small" style={{ marginTop: 10 }} onClick={() => navigate(-1)}>‹ Back</button>
       <h1>
         {batter.number ? `#${batter.number} ` : ''}{batter.name}{' '}
         <span className="pill">bats {batter.bats}</span>

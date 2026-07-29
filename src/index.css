@@ -154,6 +154,13 @@ label { font-size: 0.85rem; color: var(--muted); display: block; margin-bottom: 
 }
 .pitch-stat.on { outline: 3px solid var(--accent); outline-offset: -1px; }
 .pitch-stat .breakdown { font-size: 0.8rem; }
+.selected-pitch {
+  background: var(--panel);
+  border: 1px solid var(--accent);
+  border-radius: 10px;
+  padding: 10px 12px;
+  margin: 8px 0;
+}
 .winbar {
   display: block;
   height: 6px;

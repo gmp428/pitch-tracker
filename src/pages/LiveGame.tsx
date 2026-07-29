@@ -45,15 +45,18 @@ export default function LiveGame() {
   const [showInPlay, setShowInPlay] = useState(false)
   // Which history pool the in-game stats draw from
   const [scope, setScope] = useState<'all' | 'pitcher'>('all')
+  // Showing the "wrong batter — switch to…" picker
+  const [changingBatter, setChangingBatter] = useState(false)
 
   // If a pitcher change removes the selected pitch type from the arsenal, clear it
   useEffect(() => {
     setSelType(null)
   }, [game?.currentPitcherId])
 
-  // Fresh batter, reset the stat scope to the safe default
+  // Fresh batter: reset the stat scope and close the switch-batter picker
   useEffect(() => {
     setScope('all')
+    setChangingBatter(false)
   }, [openAtBat?.batterId])
 
   if (!game || !opponent || !roster || !pitchers || !pitchTypes) return null
@@ -69,6 +72,20 @@ export default function LiveGame() {
     if (p.result === 'ball') balls++
     else if (p.result === 'foul') { if (strikes < 2) strikes++ }
     else if (p.result === 'called_strike' || p.result === 'swinging_strike') strikes++
+  }
+
+  // Reassign the current at-bat (and any pitches already logged in it) to a
+  // different batter — for when the wrong batter was picked.
+  const switchBatter = async (newBatterId: number) => {
+    if (!openAtBat || newBatterId === openAtBat.batterId) {
+      setChangingBatter(false)
+      return
+    }
+    await db.transaction('rw', db.atBats, db.pitches, async () => {
+      await db.atBats.update(openAtBat.id, { batterId: newBatterId })
+      await db.pitches.where('atBatId').equals(openAtBat.id).modify({ batterId: newBatterId })
+    })
+    setChangingBatter(false)
   }
 
   const startAtBat = async (batterId: number) => {
@@ -209,58 +226,95 @@ export default function LiveGame() {
               </div>
               <div className="count-display">{balls}-{strikes}</div>
             </div>
-            {history.length > 0 && (
-              <div className="chips" style={{ margin: '8px 0 0' }}>
-                <button
-                  className={`chip small-chip ${scope === 'all' ? 'on' : ''}`}
-                  onClick={() => setScope('all')}
-                >
-                  All pitchers ({history.length})
-                </button>
-                <button
-                  className={`chip small-chip ${scope === 'pitcher' ? 'on' : ''}`}
-                  onClick={() => setScope('pitcher')}
-                  disabled={vsPitcherCount === 0}
-                >
-                  vs {currentPitcher?.name ?? '?'} ({vsPitcherCount})
-                </button>
-              </div>
-            )}
+            <div className="row" style={{ marginTop: 8 }}>
+              <button className="small" onClick={() => setChangingBatter((v) => !v)}>
+                {changingBatter ? 'Cancel' : '↔ Wrong batter?'}
+              </button>
+              {history.length > 0 && (
+                <>
+                  <button
+                    className={`chip small-chip ${scope === 'all' ? 'on' : ''}`}
+                    onClick={() => setScope('all')}
+                  >
+                    All pitchers ({history.length})
+                  </button>
+                  <button
+                    className={`chip small-chip ${scope === 'pitcher' ? 'on' : ''}`}
+                    onClick={() => setScope('pitcher')}
+                    disabled={vsPitcherCount === 0}
+                  >
+                    vs {currentPitcher?.name ?? '?'} ({vsPitcherCount})
+                  </button>
+                </>
+              )}
+            </div>
           </div>
+
+          {changingBatter && (
+            <div className="card stack">
+              <strong>Switch this at-bat to…</strong>
+              <div className="list">
+                {roster.map((b) => (
+                  <button
+                    key={b.id}
+                    className="list-item"
+                    style={{ width: '100%' }}
+                    disabled={b.id === batter.id}
+                    onClick={() => switchBatter(b.id)}
+                  >
+                    <span>{b.number ? `#${b.number} ` : ''}{b.name}</span>
+                    <span className="pill">bats {b.bats}</span>
+                    {b.id === batter.id ? <span className="chev">current</span> : <span className="chev">›</span>}
+                  </button>
+                ))}
+              </div>
+            </div>
+          )}
 
           <SuggestionPanel batter={batter} currentPitcherId={game.currentPitcherId} />
 
-          <h3>1. Pitch type {scoped.length > 0 && <span className="muted" style={{ textTransform: 'none' }}>— {batter.name}’s history per pitch</span>}</h3>
-          <div className="stack">
-            {arsenal.map((t) => {
-              const tp = scoped.filter((p) => p.pitchTypeId === t.id)
-              const rate = battleRate(battleAgg(tp))
-              const top3 = outcomeBreakdown(tp).slice(0, 3)
-              return (
-                <button
-                  key={t.id}
-                  className={`pitch-stat ${selType === t.id ? 'on' : ''}`}
-                  onClick={() => setSelType(t.id)}
-                >
-                  <span className="row spread">
-                    <strong>{t.name}</strong>
-                    <span className="muted">{tp.length > 0 ? `${tp.length} seen` : 'no data'}</span>
-                  </span>
-                  {rate !== null && (
-                    <span className="winbar" aria-hidden="true">
-                      <span style={{ width: `${Math.round(rate * 100)}%` }} />
-                    </span>
-                  )}
-                  {top3.length > 0 && (
-                    <span className="muted breakdown">
-                      {top3.map((s) => `${s.label} ${pct(s.pct)}`).join(' · ')}
-                    </span>
-                  )}
-                </button>
-              )
-            })}
-          </div>
+          {selType === null ? (
+            <>
+              <h3>1. Pitch type {scoped.length > 0 && <span className="muted" style={{ textTransform: 'none' }}>— {batter.name}’s history per pitch</span>}</h3>
+              <div className="stack">
+                {arsenal.map((t) => {
+                  const tp = scoped.filter((p) => p.pitchTypeId === t.id)
+                  const rate = battleRate(battleAgg(tp))
+                  const top3 = outcomeBreakdown(tp).slice(0, 3)
+                  return (
+                    <button
+                      key={t.id}
+                      className="pitch-stat"
+                      onClick={() => setSelType(t.id)}
+                    >
+                      <span className="row spread">
+                        <strong>{t.name}</strong>
+                        <span className="muted">{tp.length > 0 ? `${tp.length} seen` : 'no data'}</span>
+                      </span>
+                      {rate !== null && (
+                        <span className="winbar" aria-hidden="true">
+                          <span style={{ width: `${Math.round(rate * 100)}%` }} />
+                        </span>
+                      )}
+                      {top3.length > 0 && (
+                        <span className="muted breakdown">
+                          {top3.map((s) => `${s.label} ${pct(s.pct)}`).join(' · ')}
+                        </span>
+                      )}
+                    </button>
+                  )
+                })}
+              </div>
+            </>
+          ) : (
+            <div className="row spread selected-pitch">
+              <span><span className="muted">Pitch:</span> <strong>{pitchTypes.find((t) => t.id === selType)?.name}</strong></span>
+              <button className="small" onClick={() => { setSelType(null); setSelZone(null); setShowInPlay(false) }}>Change pitch</button>
+            </div>
+          )}
 
+          {selType !== null && (
+          <>
           <h3>2. Location {heat && <span className="muted" style={{ textTransform: 'none' }}>— where this pitch has worked</span>}</h3>
           <ZoneGrid selected={selZone} onSelect={setSelZone} heat={heat} />
           {heat && (
@@ -270,8 +324,8 @@ export default function LiveGame() {
           )}
 
           <h3>3. Result</h3>
-          {selType === null || selZone === null ? (
-            <p className="muted" style={{ textAlign: 'center' }}>Pick the pitch type and location first.</p>
+          {selZone === null ? (
+            <p className="muted" style={{ textAlign: 'center' }}>Tap where the pitch went above.</p>
           ) : !showInPlay ? (
             <div className="result-grid">
               <button onClick={() => commit('ball')}>Ball</button>
@@ -287,6 +341,8 @@ export default function LiveGame() {
               ))}
               <button className="wide" onClick={() => setShowInPlay(false)}>‹ Back</button>
             </div>
+          )}
+          </>
           )}
 
           {(abPitches?.length ?? 0) > 0 && (
