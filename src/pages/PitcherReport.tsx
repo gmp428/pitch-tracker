@@ -12,7 +12,7 @@ const WINDOWS: TimeWindow[] = ['last1', 'last3', 'all']
 
 export default function PitcherReport() {
   const { id } = useParams()
-  const pitcherId = Number(id)
+  const pitcherId = id!
   const navigate = useNavigate()
 
   const pitcher = useLiveQuery(() => db.pitchers.get(pitcherId), [pitcherId])
@@ -31,7 +31,7 @@ export default function PitcherReport() {
   const heat = byZoneBattle(viewPitches)
 
   // Per-batter results for this pitcher
-  const byBatter = new Map<number, typeof overall>()
+  const byBatter = new Map<string, typeof overall>()
   for (const batterId of new Set(viewPitches.map((p) => p.batterId))) {
     byBatter.set(batterId, aggregate(viewPitches.filter((p) => p.batterId === batterId)))
   }

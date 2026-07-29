@@ -7,7 +7,7 @@ export default function Games() {
   const games = useLiveQuery(() => db.games.toArray(), [])
   const opponents = useLiveQuery(() => db.opponents.toArray(), [])
   const pitchCounts = useLiveQuery(async () => {
-    const counts = new Map<number, number>()
+    const counts = new Map<string, number>()
     const all = await db.pitches.toArray()
     for (const p of all) counts.set(p.gameId, (counts.get(p.gameId) ?? 0) + 1)
     return counts

@@ -54,17 +54,17 @@ export const WINDOW_LABELS: Record<TimeWindow, string> = {
   all: 'Overall',
 }
 
-// Sort game ids newest-first by date (id breaks ties, higher = newer).
-export function orderGamesNewestFirst(games: Game[]): number[] {
+// Sort game ids newest-first by date (updatedAt breaks ties, higher = newer).
+export function orderGamesNewestFirst(games: Game[]): string[] {
   return [...games]
-    .sort((a, b) => (b.date.localeCompare(a.date)) || (b.id - a.id))
+    .sort((a, b) => (b.date.localeCompare(a.date)) || (b.updatedAt - a.updatedAt))
     .map((g) => g.id)
 }
 
 // The set of game ids to include for a window, based on the games in which
 // these pitches actually occurred (e.g. a batter's most recent games with data).
 // Returns null for 'all' (no filtering needed).
-export function gameIdsForWindow(pitches: Pitch[], allGames: Game[], window: TimeWindow): Set<number> | null {
+export function gameIdsForWindow(pitches: Pitch[], allGames: Game[], window: TimeWindow): Set<string> | null {
   if (window === 'all') return null
   const withData = new Set(pitches.map((p) => p.gameId))
   const ordered = orderGamesNewestFirst(allGames.filter((g) => withData.has(g.id)))
@@ -93,11 +93,11 @@ export function byZone(pitches: Pitch[]): Map<Zone, Agg> {
   return new Map([...groupBy(pitches, (p) => p.zone)].map(([k, v]) => [k, aggregate(v)]))
 }
 
-export function byPitchType(pitches: Pitch[]): Map<number, Agg> {
+export function byPitchType(pitches: Pitch[]): Map<string, Agg> {
   return new Map([...groupBy(pitches, (p) => p.pitchTypeId)].map(([k, v]) => [k, aggregate(v)]))
 }
 
-export function byPitcher(pitches: Pitch[]): Map<number, Agg> {
+export function byPitcher(pitches: Pitch[]): Map<string, Agg> {
   return new Map([...groupBy(pitches, (p) => p.pitcherId)].map(([k, v]) => [k, aggregate(v)]))
 }
 

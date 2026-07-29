@@ -1,30 +1,41 @@
 import Dexie, { type EntityTable } from 'dexie'
 
+// ---------- IDs & timestamps ----------
+// Every row uses a globally-unique id (not an auto-increment integer) so the
+// same record has the same id on every device — the foundation for syncing to
+// a server later. `updatedAt` is stamped on every write for future sync/merge.
+
+export const newId = (): string => crypto.randomUUID()
+export const now = (): number => Date.now()
+
 // ---------- Types ----------
 
 export interface Opponent {
-  id: number
+  id: string
   name: string
+  updatedAt: number
 }
 
 export interface Batter {
-  id: number
-  opponentId: number
+  id: string
+  opponentId: string
   name: string
   number?: string
   bats: 'L' | 'R'
   notes?: string
+  updatedAt: number
 }
 
 export interface Pitcher {
-  id: number
+  id: string
   name: string
   number?: string
   throws: 'L' | 'R'
   notes?: string
   // Pitch types this pitcher can throw. Undefined or empty = all pitch types
   // (covers pitchers created before arsenals existed).
-  pitchTypeIds?: number[]
+  pitchTypeIds?: string[]
+  updatedAt: number
 }
 
 export function pitcherArsenal(pitcher: Pitcher | undefined, allTypes: PitchType[]): PitchType[] {
@@ -35,18 +46,20 @@ export function pitcherArsenal(pitcher: Pitcher | undefined, allTypes: PitchType
 }
 
 export interface PitchType {
-  id: number
+  id: string
   name: string
   abbr: string
+  updatedAt: number
 }
 
 export interface Game {
-  id: number
-  opponentId: number
+  id: string
+  opponentId: string
   date: string // ISO yyyy-mm-dd
   label?: string
   status: 'active' | 'finished'
-  currentPitcherId?: number
+  currentPitcherId?: string
+  updatedAt: number
 }
 
 export type AtBatOutcome =
@@ -60,12 +73,13 @@ export type AtBatOutcome =
   | 'error'
 
 export interface AtBat {
-  id: number
-  gameId: number
-  batterId: number
-  pitcherId: number
+  id: string
+  gameId: string
+  batterId: string
+  pitcherId: string
   outcome?: AtBatOutcome
   startedAt: number
+  updatedAt: number
 }
 
 // Zones from the catcher's point of view.
@@ -77,24 +91,28 @@ export type PitchResult = 'ball' | 'called_strike' | 'swinging_strike' | 'foul' 
 export type InPlayOutcome = 'out' | 'single' | 'double' | 'triple' | 'home_run' | 'error'
 
 export interface Pitch {
-  id: number
-  gameId: number
-  atBatId: number
-  batterId: number
-  pitcherId: number
+  id: string
+  gameId: string
+  atBatId: string
+  batterId: string
+  pitcherId: string
   seq: number // 1-based pitch number within the at-bat
   balls: number // count BEFORE this pitch
   strikes: number
-  pitchTypeId: number
+  pitchTypeId: string
   zone: Zone
   result: PitchResult
   inPlay?: InPlayOutcome
   ts: number
+  updatedAt: number
 }
 
 // ---------- Database ----------
 
-export const db = new Dexie('pitch-tracker') as Dexie & {
+// Primary keys are supplied by us (UUIDs), not auto-incremented. The database
+// name is versioned (…-v2) because the id type changed from integers to
+// strings; the old integer-keyed database is discarded (data was throwaway).
+export const db = new Dexie('pitch-tracker-v2') as Dexie & {
   opponents: EntityTable<Opponent, 'id'>
   batters: EntityTable<Batter, 'id'>
   pitchers: EntityTable<Pitcher, 'id'>
@@ -105,16 +123,19 @@ export const db = new Dexie('pitch-tracker') as Dexie & {
 }
 
 db.version(1).stores({
-  opponents: '++id, name',
-  batters: '++id, opponentId',
-  pitchers: '++id, name',
-  pitchTypes: '++id, name',
-  games: '++id, opponentId, status',
-  atBats: '++id, gameId, batterId, pitcherId',
-  pitches: '++id, gameId, atBatId, batterId, pitcherId, ts',
+  opponents: 'id, name, updatedAt',
+  batters: 'id, opponentId, updatedAt',
+  pitchers: 'id, name, updatedAt',
+  pitchTypes: 'id, name, updatedAt',
+  games: 'id, opponentId, status, updatedAt',
+  atBats: 'id, gameId, batterId, pitcherId, updatedAt',
+  pitches: 'id, gameId, atBatId, batterId, pitcherId, ts, updatedAt',
 })
 
-const DEFAULT_PITCH_TYPES: Array<Omit<PitchType, 'id'>> = [
+// Discard the legacy integer-keyed database from before the UUID switch.
+Dexie.delete('pitch-tracker').catch(() => {})
+
+const DEFAULT_PITCH_TYPES: Array<Pick<PitchType, 'name' | 'abbr'>> = [
   { name: 'Fastball', abbr: 'FB' },
   { name: 'Changeup', abbr: 'CH' },
   { name: 'Drop ball', abbr: 'DR' },
@@ -124,7 +145,7 @@ const DEFAULT_PITCH_TYPES: Array<Omit<PitchType, 'id'>> = [
 ]
 
 db.on('populate', async () => {
-  await db.pitchTypes.bulkAdd(DEFAULT_PITCH_TYPES as PitchType[])
+  await db.pitchTypes.bulkAdd(DEFAULT_PITCH_TYPES.map((t) => ({ ...t, id: newId(), updatedAt: now() })))
 })
 
 // ---------- Display helpers ----------
@@ -163,7 +184,7 @@ export function outcomeLabel(o: AtBatOutcome | InPlayOutcome): string {
 
 export interface BackupFile {
   app: 'pitch-tracker'
-  version: 1
+  version: number
   exportedAt: string
   opponents: Opponent[]
   batters: Batter[]
@@ -177,7 +198,7 @@ export interface BackupFile {
 export async function exportAll(): Promise<BackupFile> {
   return {
     app: 'pitch-tracker',
-    version: 1,
+    version: 2,
     exportedAt: new Date().toISOString(),
     opponents: await db.opponents.toArray(),
     batters: await db.batters.toArray(),

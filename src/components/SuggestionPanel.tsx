@@ -4,7 +4,7 @@ import { db, pitcherArsenal, zoneLabel, type Batter } from '../db'
 import { pct } from '../lib/stats'
 import { suggestPitch, TIER_LABELS } from '../lib/suggest'
 
-export default function SuggestionPanel({ batter, currentPitcherId }: { batter: Batter; currentPitcherId?: number }) {
+export default function SuggestionPanel({ batter, currentPitcherId }: { batter: Batter; currentPitcherId?: string }) {
   const allPitches = useLiveQuery(() => db.pitches.toArray(), [])
   const allGames = useLiveQuery(() => db.games.toArray(), [])
   const allBatters = useLiveQuery(() => db.batters.toArray(), [])
@@ -19,7 +19,7 @@ export default function SuggestionPanel({ batter, currentPitcherId }: { batter: 
     ? new Set(pitcherArsenal(currentPitcher, pitchTypes).map((t) => t.id))
     : undefined
   const result = suggestPitch({ allPitches, allGames, batter, allBatters, currentPitcherId, allowedPitchTypeIds })
-  const typeName = (id: number) => pitchTypes.find((t) => t.id === id)?.name ?? '?'
+  const typeName = (id: string) => pitchTypes.find((t) => t.id === id)?.name ?? '?'
 
   if (!result) {
     return (

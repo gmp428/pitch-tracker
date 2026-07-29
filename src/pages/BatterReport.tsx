@@ -12,7 +12,7 @@ const WINDOWS: TimeWindow[] = ['last1', 'last3', 'all']
 
 export default function BatterReport() {
   const { id } = useParams()
-  const batterId = Number(id)
+  const batterId = id!
   const navigate = useNavigate()
 
   const batter = useLiveQuery(() => db.batters.get(batterId), [batterId])
@@ -27,7 +27,7 @@ export default function BatterReport() {
   const pitchTypes = useLiveQuery(() => db.pitchTypes.toArray(), [])
 
   const [win, setWin] = useState<TimeWindow>('all')
-  const [pitcherFilter, setPitcherFilter] = useState<number | 'all'>('all')
+  const [pitcherFilter, setPitcherFilter] = useState<string | 'all'>('all')
 
   if (!batter || !opponent || !pitches || !atBats || !allGames || !pitchers || !pitchTypes) return null
 
@@ -49,7 +49,7 @@ export default function BatterReport() {
     .sort((a, b) => b.startedAt - a.startedAt)
 
   const gameById = new Map(allGames.map((g) => [g.id, g]))
-  const pitcherName = (pid: number) => pitchers.find((p) => p.id === pid)?.name ?? '?'
+  const pitcherName = (pid: string) => pitchers.find((p) => p.id === pid)?.name ?? '?'
 
   return (
     <main>

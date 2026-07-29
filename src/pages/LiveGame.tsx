@@ -2,7 +2,7 @@ import { useEffect, useState } from 'react'
 import { useNavigate, useParams } from 'react-router-dom'
 import { useLiveQuery } from 'dexie-react-hooks'
 import {
-  db, pitcherArsenal, resultLabel,
+  db, newId, now, pitcherArsenal, resultLabel,
   type AtBatOutcome, type Batter, type InPlayOutcome, type Pitch, type PitchResult, type Zone,
 } from '../db'
 import ZoneGrid from '../components/ZoneGrid'
@@ -11,7 +11,7 @@ import { battleAgg, battleRate, byZoneBattle, outcomeBreakdown, pct } from '../l
 
 export default function LiveGame() {
   const { id } = useParams()
-  const gameId = Number(id)
+  const gameId = id!
   const navigate = useNavigate()
 
   const game = useLiveQuery(() => db.games.get(gameId), [gameId])
@@ -40,7 +40,7 @@ export default function LiveGame() {
     [openAtBat?.batterId],
   )
 
-  const [selType, setSelType] = useState<number | null>(null)
+  const [selType, setSelType] = useState<string | null>(null)
   const [selZone, setSelZone] = useState<Zone | null>(null)
   const [showInPlay, setShowInPlay] = useState(false)
   // Which history pool the in-game stats draw from
@@ -76,24 +76,26 @@ export default function LiveGame() {
 
   // Reassign the current at-bat (and any pitches already logged in it) to a
   // different batter — for when the wrong batter was picked.
-  const switchBatter = async (newBatterId: number) => {
+  const switchBatter = async (newBatterId: string) => {
     if (!openAtBat || newBatterId === openAtBat.batterId) {
       setChangingBatter(false)
       return
     }
     await db.transaction('rw', db.atBats, db.pitches, async () => {
-      await db.atBats.update(openAtBat.id, { batterId: newBatterId })
-      await db.pitches.where('atBatId').equals(openAtBat.id).modify({ batterId: newBatterId })
+      await db.atBats.update(openAtBat.id, { batterId: newBatterId, updatedAt: now() })
+      await db.pitches.where('atBatId').equals(openAtBat.id).modify({ batterId: newBatterId, updatedAt: now() })
     })
     setChangingBatter(false)
   }
 
-  const startAtBat = async (batterId: number) => {
+  const startAtBat = async (batterId: string) => {
     await db.atBats.add({
+      id: newId(),
       gameId,
       batterId,
       pitcherId: game.currentPitcherId!,
       startedAt: Date.now(),
+      updatedAt: now(),
     })
     setSelType(null)
     setSelZone(null)
@@ -109,6 +111,7 @@ export default function LiveGame() {
 
     await db.transaction('rw', db.pitches, db.atBats, async () => {
       await db.pitches.add({
+        id: newId(),
         gameId,
         atBatId: openAtBat.id,
         batterId: openAtBat.batterId,
@@ -121,8 +124,9 @@ export default function LiveGame() {
         result,
         inPlay,
         ts: Date.now(),
+        updatedAt: now(),
       })
-      if (outcome) await db.atBats.update(openAtBat.id, { outcome })
+      if (outcome) await db.atBats.update(openAtBat.id, { outcome, updatedAt: now() })
     })
     setSelType(null)
     setSelZone(null)
@@ -144,7 +148,7 @@ export default function LiveGame() {
         const n = await db.pitches.where('atBatId').equals(open.id).count()
         if (n === 0) await db.atBats.delete(open.id)
       }
-      await db.atBats.update(last.atBatId, { outcome: undefined })
+      await db.atBats.update(last.atBatId, { outcome: undefined, updatedAt: now() })
       await db.pitches.delete(last.id)
     })
     setShowInPlay(false)
@@ -158,7 +162,7 @@ export default function LiveGame() {
       const n = await db.pitches.where('atBatId').equals(open.id).count()
       if (n === 0) await db.atBats.delete(open.id)
     }
-    await db.games.update(gameId, { status: 'finished' })
+    await db.games.update(gameId, { status: 'finished', updatedAt: now() })
     navigate(`/games/${gameId}`)
   }
 
@@ -179,7 +183,7 @@ export default function LiveGame() {
         <select
           style={{ width: 'auto', flex: 1 }}
           value={game.currentPitcherId ?? ''}
-          onChange={(e) => db.games.update(gameId, { currentPitcherId: Number(e.target.value) })}
+          onChange={(e) => db.games.update(gameId, { currentPitcherId: e.target.value, updatedAt: now() })}
         >
           {pitchers.map((p) => (
             <option key={p.id} value={p.id}>{p.number ? `#${p.number} ` : ''}{p.name}</option>

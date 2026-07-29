@@ -1,18 +1,18 @@
 import { useEffect, useState } from 'react'
 import { Link } from 'react-router-dom'
 import { useLiveQuery } from 'dexie-react-hooks'
-import { db, pitcherArsenal } from '../db'
+import { db, newId, now, pitcherArsenal } from '../db'
 
 export default function Pitchers() {
   const pitchers = useLiveQuery(() => db.pitchers.toArray(), [])
   const pitchTypes = useLiveQuery(() => db.pitchTypes.toArray(), [])
 
-  const [editingId, setEditingId] = useState<number | null>(null)
+  const [editingId, setEditingId] = useState<string | null>(null)
   const [name, setName] = useState('')
   const [number, setNumber] = useState('')
   const [throws, setThrows] = useState<'L' | 'R'>('R')
   const [notes, setNotes] = useState('')
-  const [arsenal, setArsenal] = useState<number[] | null>(null) // null = not yet initialized
+  const [arsenal, setArsenal] = useState<string[] | null>(null) // null = not yet initialized
 
   // Default a fresh form's arsenal to every pitch type once they load
   useEffect(() => {
@@ -28,7 +28,7 @@ export default function Pitchers() {
     setArsenal(pitchTypes?.map((t) => t.id) ?? null)
   }
 
-  const toggleArsenal = (id: number) => {
+  const toggleArsenal = (id: string) => {
     setArsenal((a) => {
       const cur = a ?? []
       return cur.includes(id) ? cur.filter((x) => x !== id) : [...cur, id]
@@ -45,16 +45,17 @@ export default function Pitchers() {
       throws,
       notes: notes.trim(),
       pitchTypeIds: arsenal ?? [],
+      updatedAt: now(),
     }
     if (editingId !== null) {
       await db.pitchers.update(editingId, record)
     } else {
-      await db.pitchers.add(record as never)
+      await db.pitchers.add({ id: newId(), ...record })
     }
     resetForm()
   }
 
-  const startEdit = (pitcherId: number) => {
+  const startEdit = (pitcherId: string) => {
     const p = pitchers?.find((x) => x.id === pitcherId)
     if (!p) return
     setEditingId(pitcherId)
@@ -65,7 +66,7 @@ export default function Pitchers() {
     setArsenal(pitcherArsenal(p, pitchTypes ?? []).map((t) => t.id))
   }
 
-  const remove = async (pitcherId: number) => {
+  const remove = async (pitcherId: string) => {
     const pitchCount = await db.pitches.where('pitcherId').equals(pitcherId).count()
     if (pitchCount > 0) {
       alert(`This pitcher has ${pitchCount} logged pitches. Delete is blocked to protect your data.`)

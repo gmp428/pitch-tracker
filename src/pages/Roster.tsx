@@ -1,16 +1,16 @@
 import { useState } from 'react'
 import { Link, useNavigate, useParams } from 'react-router-dom'
 import { useLiveQuery } from 'dexie-react-hooks'
-import { db } from '../db'
+import { db, newId, now } from '../db'
 
 export default function Roster() {
   const { id } = useParams()
-  const opponentId = Number(id)
+  const opponentId = id!
   const navigate = useNavigate()
   const opponent = useLiveQuery(() => db.opponents.get(opponentId), [opponentId])
   const batters = useLiveQuery(() => db.batters.where('opponentId').equals(opponentId).toArray(), [opponentId])
 
-  const [editingId, setEditingId] = useState<number | null>(null)
+  const [editingId, setEditingId] = useState<string | null>(null)
   const [name, setName] = useState('')
   const [number, setNumber] = useState('')
   const [bats, setBats] = useState<'L' | 'R'>('R')
@@ -27,14 +27,14 @@ export default function Roster() {
     const trimmed = name.trim()
     if (!trimmed) return
     if (editingId !== null) {
-      await db.batters.update(editingId, { name: trimmed, number: number.trim(), bats })
+      await db.batters.update(editingId, { name: trimmed, number: number.trim(), bats, updatedAt: now() })
     } else {
-      await db.batters.add({ opponentId, name: trimmed, number: number.trim(), bats })
+      await db.batters.add({ id: newId(), opponentId, name: trimmed, number: number.trim(), bats, updatedAt: now() })
     }
     resetForm()
   }
 
-  const startEdit = (batterId: number) => {
+  const startEdit = (batterId: string) => {
     const b = batters?.find((x) => x.id === batterId)
     if (!b) return
     setEditingId(batterId)
@@ -43,7 +43,7 @@ export default function Roster() {
     setBats(b.bats)
   }
 
-  const removeBatter = async (batterId: number) => {
+  const removeBatter = async (batterId: string) => {
     const pitchCount = await db.pitches.where('batterId').equals(batterId).count()
     if (pitchCount > 0) {
       alert(`This batter has ${pitchCount} logged pitches. Delete is blocked to protect your data.`)

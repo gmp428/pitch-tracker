@@ -1,6 +1,6 @@
 import { useRef, useState } from 'react'
 import { useLiveQuery } from 'dexie-react-hooks'
-import { db, exportAll, importAll, type BackupFile } from '../db'
+import { db, exportAll, importAll, newId, now, type BackupFile } from '../db'
 
 export default function Settings() {
   const pitchTypes = useLiveQuery(() => db.pitchTypes.toArray(), [])
@@ -11,16 +11,16 @@ export default function Settings() {
     e.preventDefault()
     const name = newName.trim()
     if (!name) return
-    await db.pitchTypes.add({ name, abbr: name.slice(0, 2).toUpperCase() })
+    await db.pitchTypes.add({ id: newId(), name, abbr: name.slice(0, 2).toUpperCase(), updatedAt: now() })
     setNewName('')
   }
 
-  const renameType = async (id: number, current: string) => {
+  const renameType = async (id: string, current: string) => {
     const name = prompt('New name for this pitch type:', current)?.trim()
-    if (name) await db.pitchTypes.update(id, { name })
+    if (name) await db.pitchTypes.update(id, { name, updatedAt: now() })
   }
 
-  const removeType = async (id: number) => {
+  const removeType = async (id: string) => {
     const used = await db.pitches.filter((p) => p.pitchTypeId === id).count()
     if (used > 0) {
       alert(`This pitch type is used by ${used} logged pitches, so it can’t be deleted.`)

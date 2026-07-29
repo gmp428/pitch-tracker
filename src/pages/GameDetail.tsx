@@ -1,10 +1,10 @@
 import { Link, useNavigate, useParams } from 'react-router-dom'
 import { useLiveQuery } from 'dexie-react-hooks'
-import { db, outcomeLabel, resultLabel, zoneLabel } from '../db'
+import { db, now, outcomeLabel, resultLabel, zoneLabel } from '../db'
 
 export default function GameDetail() {
   const { id } = useParams()
-  const gameId = Number(id)
+  const gameId = id!
   const navigate = useNavigate()
 
   const game = useLiveQuery(() => db.games.get(gameId), [gameId])
@@ -20,7 +20,7 @@ export default function GameDetail() {
   const ordered = [...atBats].sort((a, b) => a.startedAt - b.startedAt)
 
   const reopen = async () => {
-    await db.games.update(gameId, { status: 'active' })
+    await db.games.update(gameId, { status: 'active', updatedAt: now() })
     navigate(`/game/${gameId}`)
   }
 

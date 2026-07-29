@@ -1,12 +1,12 @@
 import { useState } from 'react'
 import { Link } from 'react-router-dom'
 import { useLiveQuery } from 'dexie-react-hooks'
-import { db } from '../db'
+import { db, newId, now } from '../db'
 
 export default function Teams() {
   const opponents = useLiveQuery(() => db.opponents.toArray(), [])
   const batterCounts = useLiveQuery(async () => {
-    const counts = new Map<number, number>()
+    const counts = new Map<string, number>()
     for (const b of await db.batters.toArray()) {
       counts.set(b.opponentId, (counts.get(b.opponentId) ?? 0) + 1)
     }
@@ -18,7 +18,7 @@ export default function Teams() {
     e.preventDefault()
     const trimmed = name.trim()
     if (!trimmed) return
-    await db.opponents.add({ name: trimmed })
+    await db.opponents.add({ id: newId(), name: trimmed, updatedAt: now() })
     setName('')
   }
 

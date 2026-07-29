@@ -14,7 +14,7 @@ export const TIER_LABELS: Record<Tier, string> = {
 }
 
 export interface Combo {
-  pitchTypeId: number
+  pitchTypeId: string
   zone: Zone
   sample: number // raw number of pitches behind this suggestion
   rate: number // recency-weighted success rate, 0..1
@@ -28,7 +28,7 @@ export interface SuggestionResult {
 const MIN_SAMPLE = 2
 
 // Recent games count a bit more: most recent game 2x, next two 1.5x, older 1x.
-function recencyWeight(gameRecency: Map<number, number>, gameId: number): number {
+function recencyWeight(gameRecency: Map<string, number>, gameId: string): number {
   const idx = gameRecency.get(gameId)
   if (idx === undefined) return 1
   if (idx === 0) return 2
@@ -36,7 +36,7 @@ function recencyWeight(gameRecency: Map<number, number>, gameId: number): number
   return 1
 }
 
-function rankCombos(pitches: Pitch[], gameRecency: Map<number, number>): Combo[] {
+function rankCombos(pitches: Pitch[], gameRecency: Map<string, number>): Combo[] {
   const byCombo = new Map<string, Pitch[]>()
   for (const p of pitches) {
     const k = `${p.pitchTypeId}|${p.zone}`
@@ -69,9 +69,9 @@ export function suggestPitch(args: {
   allGames: Game[]
   batter: Batter
   allBatters: Batter[]
-  currentPitcherId?: number
+  currentPitcherId?: string
   // Restrict suggestions to the current pitcher's arsenal
-  allowedPitchTypeIds?: Set<number>
+  allowedPitchTypeIds?: Set<string>
 }): SuggestionResult | null {
   const { allGames, batter, allBatters, currentPitcherId, allowedPitchTypeIds } = args
   const gameRecency = new Map(orderGamesNewestFirst(allGames).map((id, i) => [id, i]))
