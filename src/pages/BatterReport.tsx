@@ -4,8 +4,8 @@ import { useLiveQuery } from 'dexie-react-hooks'
 import { db, outcomeLabel } from '../db'
 import ZoneGrid from '../components/ZoneGrid'
 import {
-  aggregate, byPitcher, byPitchType, byZoneBattle, filterByWindow, gameIdsForWindow,
-  pct, successRate, WINDOW_LABELS, type TimeWindow,
+  aggregate, byCount, byPitcher, byPitchType, byZoneBattle, filterByWindow,
+  gameIdsForWindow, isHit, pct, plateDiscipline, successRate, WINDOW_LABELS, type TimeWindow,
 } from '../lib/stats'
 
 const WINDOWS: TimeWindow[] = ['last1', 'last3', 'all']
@@ -40,6 +40,9 @@ export default function BatterReport() {
   const heat = byZoneBattle(viewPitches)
   const typeAggs = byPitchType(viewPitches)
   const matchups = byPitcher(windowPitches)
+  const discipline = plateDiscipline(viewPitches)
+  const countRows = byCount(viewPitches)
+  const rate = (r: number | null) => (r === null ? '—' : pct(r))
 
   const windowGameIds = gameIdsForWindow(pitches, allGames, win)
   const historyAtBats = atBats
@@ -108,6 +111,39 @@ export default function BatterReport() {
                     <td className="num">{a.whiffs}</td>
                     <td className="num">{a.hits}</td>
                     <td className="num">{pct(successRate(a))}</td>
+                  </tr>
+                )
+              })}
+            </tbody>
+          </table>
+
+          <h2>Plate discipline</h2>
+          <div className="row" style={{ gap: 8 }}>
+            <div className="card stat-tile"><div className="stat-num">{rate(discipline.chasePct)}</div><div className="muted">Chase</div></div>
+            <div className="card stat-tile"><div className="stat-num">{rate(discipline.whiffPct)}</div><div className="muted">Whiff</div></div>
+            <div className="card stat-tile"><div className="stat-num">{rate(discipline.zonePct)}</div><div className="muted">In zone</div></div>
+            <div className="card stat-tile"><div className="stat-num">{rate(discipline.firstPitchStrikePct)}</div><div className="muted">1st-pitch K</div></div>
+          </div>
+          <p className="muted" style={{ marginTop: 4 }}>
+            Chase = swings at pitches out of the zone · Whiff = swings and misses.
+          </p>
+
+          <h2>By count</h2>
+          <table>
+            <thead>
+              <tr><th>Count</th><th className="num">Seen</th><th className="num">Whiff%</th><th className="num">Chase%</th><th className="num">Hits</th></tr>
+            </thead>
+            <tbody>
+              {countRows.map(({ key, pitches: cp }) => {
+                const d = plateDiscipline(cp)
+                const hits = cp.filter(isHit).length
+                return (
+                  <tr key={key}>
+                    <td>{key}</td>
+                    <td className="num">{cp.length}</td>
+                    <td className="num">{rate(d.whiffPct)}</td>
+                    <td className="num">{rate(d.chasePct)}</td>
+                    <td className={`num ${hits > 0 ? 'bad' : ''}`}>{hits}</td>
                   </tr>
                 )
               })}

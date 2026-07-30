@@ -12,6 +12,17 @@ export function isHit(p: Pitch): boolean {
   return p.result === 'in_play' && (p.inPlay === 'single' || p.inPlay === 'double' || p.inPlay === 'triple' || p.inPlay === 'home_run')
 }
 
+// The batter offered at the pitch (swung).
+export function isSwing(p: Pitch): boolean {
+  return p.result === 'swinging_strike' || p.result === 'foul' || p.result === 'in_play'
+}
+
+// Out-of-zone pitches use the string zone regions (o-up/o-down/o-left/o-right);
+// in-zone pitches use the numeric 1–9 grid.
+export function isOutOfZone(p: Pitch): boolean {
+  return typeof p.zone === 'string'
+}
+
 export interface Agg {
   total: number
   balls: number
@@ -166,4 +177,63 @@ export function outcomeBreakdown(pitches: Pitch[]): OutcomeSlice[] {
   return Object.entries(buckets)
     .map(([label, count]) => ({ label, count, pct: count / pitches.length }))
     .sort((a, b) => b.count - a.count)
+}
+
+// ---------- Plate discipline & count splits ----------
+
+export interface PlateDiscipline {
+  seen: number
+  chasePct: number | null // swings at out-of-zone / out-of-zone seen
+  whiffPct: number | null // swinging strikes / swings
+  zonePct: number | null // in-zone / seen
+  calledStrikePct: number | null // called strikes / seen
+  firstPitchStrikePct: number | null // 0-0 strikes / 0-0 seen
+}
+
+export function plateDiscipline(pitches: Pitch[]): PlateDiscipline {
+  let seen = 0, inZone = 0, oozSeen = 0, oozSwings = 0
+  let swings = 0, whiffs = 0, called = 0
+  let firstSeen = 0, firstStrikes = 0
+  for (const p of pitches) {
+    seen++
+    if (isOutOfZone(p)) { oozSeen++; if (isSwing(p)) oozSwings++ } else inZone++
+    if (isSwing(p)) swings++
+    if (p.result === 'swinging_strike') whiffs++
+    if (p.result === 'called_strike') called++
+    if (p.balls === 0 && p.strikes === 0) {
+      firstSeen++
+      if (p.result !== 'ball') firstStrikes++ // strike = anything not a ball
+    }
+  }
+  const rate = (num: number, den: number) => (den === 0 ? null : num / den)
+  return {
+    seen,
+    chasePct: rate(oozSwings, oozSeen),
+    whiffPct: rate(whiffs, swings),
+    zonePct: rate(inZone, seen),
+    calledStrikePct: rate(called, seen),
+    firstPitchStrikePct: rate(firstStrikes, firstSeen),
+  }
+}
+
+export function countKey(p: Pitch): string {
+  return `${p.balls}-${p.strikes}`
+}
+
+// Pitches grouped by the count they were thrown on, ordered balls-then-strikes.
+export function byCount(pitches: Pitch[]): Array<{ key: string; pitches: Pitch[] }> {
+  const m = new Map<string, Pitch[]>()
+  for (const p of pitches) {
+    const k = countKey(p)
+    const arr = m.get(k)
+    if (arr) arr.push(p)
+    else m.set(k, [p])
+  }
+  return [...m.entries()]
+    .map(([key, ps]) => ({ key, pitches: ps }))
+    .sort((a, b) => {
+      const [ab, as_] = a.key.split('-').map(Number)
+      const [bb, bs] = b.key.split('-').map(Number)
+      return ab - bb || as_ - bs
+    })
 }
