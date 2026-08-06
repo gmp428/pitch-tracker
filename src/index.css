@@ -160,9 +160,9 @@ label { font-size: 0.85rem; color: var(--muted); display: block; margin-bottom: 
 .result-overlay {
   position: absolute;
   left: 0; right: 0; bottom: 0;
-  background: rgba(232, 238, 247, 0.9);
-  -webkit-backdrop-filter: blur(2px);
-  backdrop-filter: blur(2px);
+  background: rgba(232, 238, 247, 0.5);
+  -webkit-backdrop-filter: blur(1px);
+  backdrop-filter: blur(1px);
   border: 1px solid var(--border);
   border-radius: 12px;
   padding: 8px;

@@ -343,7 +343,7 @@ export default function LiveGame() {
             </div>
           )}
 
-          <SuggestionPanel batter={batter} currentPitcherId={game.currentPitcherId} />
+          {selType === null && <SuggestionPanel batter={batter} currentPitcherId={game.currentPitcherId} />}
 
           {selType === null ? (
             <>
