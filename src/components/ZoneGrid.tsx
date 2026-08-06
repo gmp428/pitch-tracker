@@ -49,7 +49,7 @@ export default function ZoneGrid(props: {
           const agg = heat.get(zone)
           if (agg && agg.total > 0) {
             const rate = battleRate(agg)
-            bg = rate === null ? '#2b2b2b' : heatColor(rate)
+            bg = rate === null ? '#64748b' : heatColor(rate)
             text = String(agg.total)
           } else if (!onSelect) {
             // pure heat map (report pages): blank empty cells
@@ -66,7 +66,7 @@ export default function ZoneGrid(props: {
             key={String(zone)}
             type="button"
             className={cls}
-            style={{ ...style, ...(bg ? { background: bg } : {}) }}
+            style={{ ...style, ...(bg ? { background: bg, color: '#fff' } : {}) }}
             onClick={onSelect ? () => onSelect(zone) : undefined}
             data-zone={String(zone)}
             disabled={!onSelect}

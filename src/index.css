@@ -1,15 +1,15 @@
 :root {
-  color-scheme: dark;
-  --bg: #000000;
-  --panel: #141414;
-  --panel-2: #1f1f1f;
-  --border: #2e2e2e;
-  --text: #e2e8f0;
-  --muted: #94a3b8;
-  --accent: #38bdf8;
-  --accent-dark: #0369a1;
-  --good: #4ade80;
-  --bad: #f87171;
+  color-scheme: light;
+  --bg: #e8eef7;        /* bluish white — readable in bright sun */
+  --panel: #ffffff;     /* white cards pop on the bluish background */
+  --panel-2: #dde5f1;   /* inputs / insets */
+  --border: #bcc7d8;
+  --text: #0d1526;      /* near-black, maximum contrast */
+  --muted: #45536a;
+  --accent: #1d4ed8;    /* strong blue links */
+  --accent-dark: #1d4ed8; /* primary-button background */
+  --good: #15803d;
+  --bad: #c0242c;
   font-family: system-ui, -apple-system, 'Segoe UI', Roboto, sans-serif;
 }
 
@@ -58,8 +58,8 @@ button, .btn {
   text-align: center;
 }
 button:active, .btn:active { transform: scale(0.98); }
-button.primary, .btn.primary { background: var(--accent-dark); border-color: var(--accent-dark); font-weight: 600; }
-button.danger { border-color: #7f1d1d; color: var(--bad); }
+button.primary, .btn.primary { background: var(--accent-dark); border-color: var(--accent-dark); color: #fff; font-weight: 600; }
+button.danger { border-color: #e0a3a3; color: var(--bad); }
 button.small { min-height: 34px; padding: 6px 10px; font-size: 0.85rem; border-radius: 8px; }
 button:disabled { opacity: 0.45; cursor: default; }
 
@@ -111,7 +111,7 @@ label { font-size: 0.85rem; color: var(--muted); display: block; margin-bottom: 
   min-height: 40px;
   font-size: 0.9rem;
 }
-.chip.on { background: var(--accent-dark); border-color: var(--accent); font-weight: 600; }
+.chip.on { background: var(--accent-dark); border-color: var(--accent); color: #fff; font-weight: 600; }
 
 /* Strike zone grid */
 .zone-grid {
@@ -134,8 +134,8 @@ label { font-size: 0.85rem; color: var(--muted); display: block; margin-bottom: 
   font-size: 0.9rem;
   color: var(--text);
 }
-.zone-in { background: var(--panel-2); border: 1px solid #3a3a3a; }
-.zone-out { background: #0a0a0a; border: 1px dashed var(--border); color: var(--muted); }
+.zone-in { background: var(--panel-2); border: 1px solid var(--border); }
+.zone-out { background: #eef2f8; border: 1px dashed var(--border); color: var(--muted); }
 .zone-selected { outline: 3px solid var(--accent); outline-offset: -1px; font-weight: 700; }
 .zone-cell:disabled { opacity: 1; }
 
@@ -165,7 +165,7 @@ label { font-size: 0.85rem; color: var(--muted); display: block; margin-bottom: 
   display: block;
   height: 6px;
   border-radius: 3px;
-  background: #532626;
+  background: #f3d3d3;
   overflow: hidden;
 }
 .winbar > span {
