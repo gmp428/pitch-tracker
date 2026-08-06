@@ -1,7 +1,7 @@
 import { useState } from 'react'
 import { Link, useNavigate, useParams } from 'react-router-dom'
 import { useLiveQuery } from 'dexie-react-hooks'
-import { db, outcomeLabel } from '../db'
+import { db, displayName, fullName, outcomeLabel } from '../db'
 import ZoneGrid from '../components/ZoneGrid'
 import {
   aggregate, byCount, byPitcher, byPitchType, byZoneBattle, filterByWindow,
@@ -52,13 +52,13 @@ export default function BatterReport() {
     .sort((a, b) => b.startedAt - a.startedAt)
 
   const gameById = new Map(allGames.map((g) => [g.id, g]))
-  const pitcherName = (pid: string) => pitchers.find((p) => p.id === pid)?.name ?? '?'
+  const pitcherName = (pid: string) => displayName(pitchers.find((p) => p.id === pid))
 
   return (
     <main>
       <button className="small" style={{ marginTop: 10 }} onClick={() => navigate(-1)}>‹ Back</button>
       <h1>
-        {batter.number ? `#${batter.number} ` : ''}{batter.name}{' '}
+        {batter.number ? `#${batter.number} ` : ''}{fullName(batter)}{' '}
         <span className="pill">bats {batter.bats}</span>
       </h1>
       <p className="muted"><Link to={`/opponent/${opponent.id}`}>{opponent.name}</Link></p>
@@ -77,7 +77,7 @@ export default function BatterReport() {
         </button>
         {pitchers.filter((p) => matchups.has(p.id)).map((p) => (
           <button key={p.id} className={`chip ${pitcherFilter === p.id ? 'on' : ''}`} onClick={() => setPitcherFilter(p.id)}>
-            vs {p.name}
+            vs {displayName(p)}
           </button>
         ))}
       </div>

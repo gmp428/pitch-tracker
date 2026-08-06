@@ -1,14 +1,15 @@
 import { useEffect, useState } from 'react'
 import { Link } from 'react-router-dom'
 import { useLiveQuery } from 'dexie-react-hooks'
-import { db, newId, now, pitcherArsenal } from '../db'
+import { db, displayName, newId, now, pitcherArsenal } from '../db'
 
 export default function Pitchers() {
   const pitchers = useLiveQuery(() => db.pitchers.toArray(), [])
   const pitchTypes = useLiveQuery(() => db.pitchTypes.toArray(), [])
 
   const [editingId, setEditingId] = useState<string | null>(null)
-  const [name, setName] = useState('')
+  const [firstName, setFirstName] = useState('')
+  const [lastName, setLastName] = useState('')
   const [number, setNumber] = useState('')
   const [throws, setThrows] = useState<'L' | 'R'>('R')
   const [notes, setNotes] = useState('')
@@ -21,7 +22,8 @@ export default function Pitchers() {
 
   const resetForm = () => {
     setEditingId(null)
-    setName('')
+    setFirstName('')
+    setLastName('')
     setNumber('')
     setThrows('R')
     setNotes('')
@@ -37,10 +39,11 @@ export default function Pitchers() {
 
   const save = async (e: React.FormEvent) => {
     e.preventDefault()
-    const trimmed = name.trim()
-    if (!trimmed) return
+    const first = firstName.trim()
+    if (!first) return
     const record = {
-      name: trimmed,
+      firstName: first,
+      lastName: lastName.trim(),
       number: number.trim(),
       throws,
       notes: notes.trim(),
@@ -59,7 +62,8 @@ export default function Pitchers() {
     const p = pitchers?.find((x) => x.id === pitcherId)
     if (!p) return
     setEditingId(pitcherId)
-    setName(p.name)
+    setFirstName(p.firstName ?? p.name ?? '')
+    setLastName(p.lastName ?? '')
     setNumber(p.number ?? '')
     setThrows(p.throws)
     setNotes(p.notes ?? '')
@@ -96,7 +100,7 @@ export default function Pitchers() {
         {pitchers.map((p) => (
           <div key={p.id} className="list-item">
             <Link to={`/pitcher/${p.id}`} className="grow" style={{ color: 'var(--text)' }}>
-              {p.number ? `#${p.number} ` : ''}{p.name} <span className="pill">throws {p.throws}</span>{' '}
+              {p.number ? `#${p.number} ` : ''}{displayName(p)} <span className="pill">throws {p.throws}</span>{' '}
               <span className="pill">{arsenalLabel(p)}</span>
             </Link>
             <button className="small" onClick={() => startEdit(p.id)}>Edit</button>
@@ -109,10 +113,14 @@ export default function Pitchers() {
         <strong>{editingId !== null ? 'Edit pitcher' : 'Add pitcher'}</strong>
         <div className="row">
           <div className="grow">
-            <label>Name</label>
-            <input value={name} onChange={(e) => setName(e.target.value)} placeholder="Pitcher name" />
+            <label>First name</label>
+            <input value={firstName} onChange={(e) => setFirstName(e.target.value)} placeholder="First" />
           </div>
-          <div style={{ width: 80 }}>
+          <div className="grow">
+            <label>Last name</label>
+            <input value={lastName} onChange={(e) => setLastName(e.target.value)} placeholder="Last" />
+          </div>
+          <div style={{ width: 56 }}>
             <label>#</label>
             <input value={number} onChange={(e) => setNumber(e.target.value)} placeholder="7" inputMode="numeric" />
           </div>

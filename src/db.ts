@@ -19,7 +19,9 @@ export interface Opponent {
 export interface Batter {
   id: string
   opponentId: string
-  name: string
+  firstName: string
+  lastName?: string
+  name?: string // legacy single-name (pre first/last split)
   number?: string
   bats: 'L' | 'R'
   notes?: string
@@ -28,7 +30,9 @@ export interface Batter {
 
 export interface Pitcher {
   id: string
-  name: string
+  firstName: string
+  lastName?: string
+  name?: string // legacy single-name (pre first/last split)
   number?: string
   throws: 'L' | 'R'
   notes?: string
@@ -36,6 +40,20 @@ export interface Pitcher {
   // (covers pitchers created before arsenals existed).
   pitchTypeIds?: string[]
   updatedAt: number
+}
+
+// Display "F. Last" (falls back to first name, then legacy name).
+export function displayName(p: { firstName?: string; lastName?: string; name?: string } | undefined): string {
+  if (!p) return '?'
+  if (p.firstName && p.lastName) return `${p.firstName[0].toUpperCase()}. ${p.lastName}`
+  return p.firstName || p.name || '?'
+}
+
+// Full "First Last" (for report titles).
+export function fullName(p: { firstName?: string; lastName?: string; name?: string } | undefined): string {
+  if (!p) return '?'
+  const joined = [p.firstName, p.lastName].filter(Boolean).join(' ')
+  return joined || p.name || '?'
 }
 
 export function pitcherArsenal(pitcher: Pitcher | undefined, allTypes: PitchType[]): PitchType[] {

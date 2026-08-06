@@ -1,7 +1,7 @@
 import { useState } from 'react'
 import { Link, useNavigate } from 'react-router-dom'
 import { useLiveQuery } from 'dexie-react-hooks'
-import { db, defaultLineup, newId, now } from '../db'
+import { db, defaultLineup, displayName, newId, now } from '../db'
 
 export default function NewGame() {
   const navigate = useNavigate()
@@ -52,7 +52,7 @@ export default function NewGame() {
       <div className="chips">
         {pitchers.map((p) => (
           <button key={p.id} className={`chip ${pitcherId === p.id ? 'on' : ''}`} onClick={() => setPitcherId(p.id)}>
-            {p.number ? `#${p.number} ` : ''}{p.name}
+            {p.number ? `#${p.number} ` : ''}{displayName(p)}
           </button>
         ))}
       </div>

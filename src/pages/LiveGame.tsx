@@ -2,7 +2,7 @@ import { useEffect, useRef, useState } from 'react'
 import { useNavigate, useParams } from 'react-router-dom'
 import { useLiveQuery } from 'dexie-react-hooks'
 import {
-  db, newId, now, pitcherArsenal, resultLabel,
+  db, displayName, newId, now, pitcherArsenal, resultLabel, zoneLabel,
   type AtBatOutcome, type Batter, type InPlayOutcome, type Pitch, type PitchResult, type Zone,
 } from '../db'
 import ZoneGrid from '../components/ZoneGrid'
@@ -77,19 +77,24 @@ export default function LiveGame() {
   useEffect(() => {
     if (!game || game.status !== 'active') return
     if (atBatCount !== 0) return // undefined = loading; >0 = already underway
-    const lineup = game.lineup
-    if (!lineup || lineup.length === 0 || bootingRef.current) return
+    const lu = game.lineup && game.lineup.length ? game.lineup : (roster ?? []).map((b) => b.id)
+    if (lu.length === 0 || bootingRef.current) return
     bootingRef.current = true
     db.atBats
-      .add({ id: newId(), gameId, batterId: lineup[0], pitcherId: game.currentPitcherId!, startedAt: Date.now(), updatedAt: now() })
+      .add({ id: newId(), gameId, batterId: lu[0], pitcherId: game.currentPitcherId!, startedAt: Date.now(), updatedAt: now() })
       .finally(() => { bootingRef.current = false })
-  }, [game?.status, atBatCount, game?.lineup, game?.currentPitcherId, gameId])
+  }, [game?.status, atBatCount, game?.lineup, game?.currentPitcherId, gameId, roster])
 
   if (!game || !opponent || !roster || !pitchers || !pitchTypes) return null
 
   const batter = openAtBat ? roster.find((b) => b.id === openAtBat.batterId) : undefined
   const currentPitcher = pitchers.find((p) => p.id === game.currentPitcherId)
   const arsenal = pitcherArsenal(currentPitcher, pitchTypes)
+
+  // The batting order to drive auto-advance / the lineup panel. Always falls
+  // back to roster order so a game with no saved lineup still works.
+  const rosterIds = roster.map((b) => b.id)
+  const order = game.lineup && game.lineup.length > 0 ? game.lineup : rosterIds
 
   // Replay the at-bat to get the current count (foul with 2 strikes doesn't add a strike)
   let balls = 0
@@ -101,30 +106,24 @@ export default function LiveGame() {
   }
 
   // Reassign the current at-bat (and any pitches already logged in it) to a
-  // different batter — for when the wrong batter was picked.
+  // different batter — for when the wrong batter was picked. Corrects the
+  // batting order too (the chosen batter moves into the current slot), always
+  // persisting a clean, duplicate-free order so the fix is remembered and
+  // auto-advance keeps working.
   const switchBatter = async (newBatterId: string) => {
     if (!openAtBat || newBatterId === openAtBat.batterId) {
       setChangingBatter(false)
       return
     }
-    // Correct the batting order too, so the fix is remembered: put the chosen
-    // batter into the current lineup slot (swap with wherever they were).
-    const lineup = game.lineup ? [...game.lineup] : []
-    const curIdx = lineup.indexOf(openAtBat.batterId)
-    if (curIdx !== -1) {
-      const j = lineup.indexOf(newBatterId)
-      if (j !== -1) {
-        ;[lineup[curIdx], lineup[j]] = [lineup[j], lineup[curIdx]]
-      } else {
-        const displaced = lineup[curIdx]
-        lineup[curIdx] = newBatterId
-        lineup.push(displaced)
-      }
-    }
+    const without = order.filter((idv) => idv !== newBatterId)
+    const at = without.indexOf(openAtBat.batterId)
+    const newLineup = at === -1
+      ? [newBatterId, ...without]
+      : [...without.slice(0, at), newBatterId, ...without.slice(at)]
     await db.transaction('rw', db.atBats, db.pitches, db.games, async () => {
       await db.atBats.update(openAtBat.id, { batterId: newBatterId, updatedAt: now() })
       await db.pitches.where('atBatId').equals(openAtBat.id).modify({ batterId: newBatterId, updatedAt: now() })
-      if (curIdx !== -1) await db.games.update(gameId, { lineup, updatedAt: now() })
+      await db.games.update(gameId, { lineup: newLineup, updatedAt: now() })
     })
     setChangingBatter(false)
   }
@@ -170,7 +169,7 @@ export default function LiveGame() {
       if (outcome) {
         await db.atBats.update(openAtBat.id, { outcome, updatedAt: now() })
         // Auto-advance: open the next batter's at-bat per the lineup order.
-        const nextId = nextInLineup(game.lineup, openAtBat.batterId)
+        const nextId = nextInLineup(order, openAtBat.batterId)
         if (nextId) {
           await db.atBats.add({
             id: newId(), gameId, batterId: nextId,
@@ -238,7 +237,7 @@ export default function LiveGame() {
           onChange={(e) => db.games.update(gameId, { currentPitcherId: e.target.value, updatedAt: now() })}
         >
           {pitchers.map((p) => (
-            <option key={p.id} value={p.id}>{p.number ? `#${p.number} ` : ''}{p.name}</option>
+            <option key={p.id} value={p.id}>{p.number ? `#${p.number} ` : ''}{displayName(p)}</option>
           ))}
         </select>
         <button className="small" onClick={undo} disabled={!gamePitchCount && !openAtBat}>↩ Undo</button>
@@ -251,11 +250,11 @@ export default function LiveGame() {
         <button className="small danger" onClick={endGame}>End game</button>
       </div>
 
-      {showLineup && game.lineup && (
+      {showLineup && (
         <div className="card stack">
           <strong>Batting order — drag ≡ to reorder</strong>
           <LineupEditor
-            order={game.lineup}
+            order={order}
             batters={roster}
             onChange={(o) => db.games.update(gameId, { lineup: o, updatedAt: now() })}
           />
@@ -271,7 +270,7 @@ export default function LiveGame() {
           <div className="list">
             {roster.map((b) => (
               <button key={b.id} className="list-item" onClick={() => startAtBat(b.id)} style={{ width: '100%' }}>
-                <span>{b.number ? `#${b.number} ` : ''}{b.name}</span>
+                <span>{b.number ? `#${b.number} ` : ''}{displayName(b)}</span>
                 <span className="pill">bats {b.bats}</span>
                 <span className="chev">›</span>
               </button>
@@ -294,8 +293,8 @@ export default function LiveGame() {
           <div className="card">
             <div className="row spread">
               <div>
-                <div style={{ fontWeight: 700 }}>{batter.number ? `#${batter.number} ` : ''}{batter.name}</div>
-                <div className="muted">bats {batter.bats} · vs {currentPitcher?.name ?? '?'}</div>
+                <div style={{ fontWeight: 700 }}>{batter.number ? `#${batter.number} ` : ''}{displayName(batter)}</div>
+                <div className="muted">bats {batter.bats} · vs {displayName(currentPitcher)}</div>
               </div>
               <div className="count-display">{balls}-{strikes}</div>
             </div>
@@ -316,7 +315,7 @@ export default function LiveGame() {
                     onClick={() => setScope('pitcher')}
                     disabled={vsPitcherCount === 0}
                   >
-                    vs {currentPitcher?.name ?? '?'} ({vsPitcherCount})
+                    vs {displayName(currentPitcher)} ({vsPitcherCount})
                   </button>
                 </>
               )}
@@ -335,7 +334,7 @@ export default function LiveGame() {
                     disabled={b.id === batter.id}
                     onClick={() => switchBatter(b.id)}
                   >
-                    <span>{b.number ? `#${b.number} ` : ''}{b.name}</span>
+                    <span>{b.number ? `#${b.number} ` : ''}{displayName(b)}</span>
                     <span className="pill">bats {b.bats}</span>
                     {b.id === batter.id ? <span className="chev">current</span> : <span className="chev">›</span>}
                   </button>
@@ -348,12 +347,12 @@ export default function LiveGame() {
 
           {selType === null ? (
             <>
-              <h3>1. Pitch type {scoped.length > 0 && <span className="muted" style={{ textTransform: 'none' }}>— {batter.name}’s history per pitch</span>}</h3>
-              <div className="stack">
+              <h3>1. Pitch type {scoped.length > 0 && <span className="muted" style={{ textTransform: 'none' }}>— {displayName(batter)}’s history per pitch</span>}</h3>
+              <div className="pitch-grid">
                 {arsenal.map((t) => {
                   const tp = scoped.filter((p) => p.pitchTypeId === t.id)
                   const rate = battleRate(battleAgg(tp))
-                  const top3 = outcomeBreakdown(tp).slice(0, 3)
+                  const top3 = outcomeBreakdown(tp).slice(0, 2)
                   return (
                     <button
                       key={t.id}
@@ -388,32 +387,38 @@ export default function LiveGame() {
 
           {selType !== null && (
           <>
-          <h3>2. Location {heat && <span className="muted" style={{ textTransform: 'none' }}>— where this pitch has worked</span>}</h3>
-          <ZoneGrid selected={selZone} onSelect={setSelZone} heat={heat} />
+          <h3>2. Location {selZone === null && <span className="muted" style={{ textTransform: 'none' }}>— tap where the pitch went</span>}</h3>
+          <div className="zone-wrap">
+            <ZoneGrid selected={selZone} onSelect={setSelZone} heat={heat} />
+            {selZone !== null && (
+              <div className="result-overlay">
+                <div className="row spread" style={{ marginBottom: 6 }}>
+                  <span className="muted">Result · <strong style={{ color: 'var(--text)' }}>{zoneLabel(selZone)}</strong></span>
+                  <button className="small" onClick={() => { setSelZone(null); setShowInPlay(false) }}>✎ Change spot</button>
+                </div>
+                {!showInPlay ? (
+                  <div className="result-grid">
+                    <button onClick={() => commit('ball')}>Ball</button>
+                    <button onClick={() => commit('called_strike')}>Called strike</button>
+                    <button onClick={() => commit('swinging_strike')}>Swinging strike</button>
+                    <button onClick={() => commit('foul')}>Foul</button>
+                    <button className="wide primary" onClick={() => setShowInPlay(true)}>In play…</button>
+                  </div>
+                ) : (
+                  <div className="result-grid">
+                    {inPlayOptions.map(([value, label]) => (
+                      <button key={value} onClick={() => commit('in_play', value)}>{label}</button>
+                    ))}
+                    <button className="wide" onClick={() => setShowInPlay(false)}>‹ Back</button>
+                  </div>
+                )}
+              </div>
+            )}
+          </div>
           {heat && (
             <p className="muted" style={{ textAlign: 'center', margin: '0 0 8px' }}>
               Green = our pitch won · red = they hit it · number = pitches there
             </p>
-          )}
-
-          <h3>3. Result</h3>
-          {selZone === null ? (
-            <p className="muted" style={{ textAlign: 'center' }}>Tap where the pitch went above.</p>
-          ) : !showInPlay ? (
-            <div className="result-grid">
-              <button onClick={() => commit('ball')}>Ball</button>
-              <button onClick={() => commit('called_strike')}>Called strike</button>
-              <button onClick={() => commit('swinging_strike')}>Swinging strike</button>
-              <button onClick={() => commit('foul')}>Foul</button>
-              <button className="wide primary" onClick={() => setShowInPlay(true)}>In play…</button>
-            </div>
-          ) : (
-            <div className="result-grid">
-              {inPlayOptions.map(([value, label]) => (
-                <button key={value} onClick={() => commit('in_play', value)}>{label}</button>
-              ))}
-              <button className="wide" onClick={() => setShowInPlay(false)}>‹ Back</button>
-            </div>
           )}
           </>
           )}

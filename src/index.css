@@ -144,6 +144,7 @@ label { font-size: 0.85rem; color: var(--muted); display: block; margin-bottom: 
 .chip.small-chip { min-height: 32px; padding: 5px 12px; font-size: 0.8rem; }
 
 /* Per-pitch scouting buttons */
+.pitch-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; }
 .pitch-stat {
   display: flex;
   flex-direction: column;
@@ -151,6 +152,21 @@ label { font-size: 0.85rem; color: var(--muted); display: block; margin-bottom: 
   gap: 5px;
   text-align: left;
   padding: 10px 12px;
+}
+.pitch-stat .breakdown { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+
+/* Result overlay floating over the plotted strike zone */
+.zone-wrap { position: relative; }
+.result-overlay {
+  position: absolute;
+  left: 0; right: 0; bottom: 0;
+  background: rgba(232, 238, 247, 0.9);
+  -webkit-backdrop-filter: blur(2px);
+  backdrop-filter: blur(2px);
+  border: 1px solid var(--border);
+  border-radius: 12px;
+  padding: 8px;
+  box-shadow: 0 -4px 16px rgba(13, 21, 38, 0.12);
 }
 .pitch-stat.on { outline: 3px solid var(--accent); outline-offset: -1px; }
 .pitch-stat .breakdown { font-size: 0.8rem; }

@@ -1,6 +1,6 @@
 import { Link, useNavigate, useParams } from 'react-router-dom'
 import { useLiveQuery } from 'dexie-react-hooks'
-import { db, now, outcomeLabel, resultLabel, zoneLabel } from '../db'
+import { db, displayName, now, outcomeLabel, resultLabel, zoneLabel } from '../db'
 
 export default function GameDetail() {
   const { id } = useParams()
@@ -45,11 +45,11 @@ export default function GameDetail() {
           <div key={ab.id} className="card">
             <div className="row spread">
               <strong>
-                {i + 1}. <Link to={`/batter/${ab.batterId}`}>{batter?.name ?? '?'}</Link>
+                {i + 1}. <Link to={`/batter/${ab.batterId}`}>{displayName(batter)}</Link>
               </strong>
               <span>{ab.outcome ? outcomeLabel(ab.outcome) : 'In progress'}</span>
             </div>
-            <div className="muted">pitched by {pitcher?.name ?? '?'}</div>
+            <div className="muted">pitched by {displayName(pitcher)}</div>
             <div className="stack" style={{ marginTop: 6 }}>
               {abPitches.map((p) => (
                 <div key={p.id} className="muted">

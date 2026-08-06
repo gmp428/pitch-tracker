@@ -1,7 +1,7 @@
 import { useState } from 'react'
 import { Link, useNavigate, useParams } from 'react-router-dom'
 import { useLiveQuery } from 'dexie-react-hooks'
-import { db, newId, now } from '../db'
+import { db, displayName, newId, now } from '../db'
 
 export default function Roster() {
   const { id } = useParams()
@@ -11,25 +11,28 @@ export default function Roster() {
   const batters = useLiveQuery(() => db.batters.where('opponentId').equals(opponentId).toArray(), [opponentId])
 
   const [editingId, setEditingId] = useState<string | null>(null)
-  const [name, setName] = useState('')
+  const [firstName, setFirstName] = useState('')
+  const [lastName, setLastName] = useState('')
   const [number, setNumber] = useState('')
   const [bats, setBats] = useState<'L' | 'R'>('R')
 
   const resetForm = () => {
     setEditingId(null)
-    setName('')
+    setFirstName('')
+    setLastName('')
     setNumber('')
     setBats('R')
   }
 
   const save = async (e: React.FormEvent) => {
     e.preventDefault()
-    const trimmed = name.trim()
-    if (!trimmed) return
+    const first = firstName.trim()
+    if (!first) return
+    const fields = { firstName: first, lastName: lastName.trim(), number: number.trim(), bats, updatedAt: now() }
     if (editingId !== null) {
-      await db.batters.update(editingId, { name: trimmed, number: number.trim(), bats, updatedAt: now() })
+      await db.batters.update(editingId, fields)
     } else {
-      await db.batters.add({ id: newId(), opponentId, name: trimmed, number: number.trim(), bats, updatedAt: now() })
+      await db.batters.add({ id: newId(), opponentId, ...fields })
     }
     resetForm()
   }
@@ -38,7 +41,8 @@ export default function Roster() {
     const b = batters?.find((x) => x.id === batterId)
     if (!b) return
     setEditingId(batterId)
-    setName(b.name)
+    setFirstName(b.firstName ?? b.name ?? '')
+    setLastName(b.lastName ?? '')
     setNumber(b.number ?? '')
     setBats(b.bats)
   }
@@ -75,7 +79,7 @@ export default function Roster() {
         {batters.map((b) => (
           <div key={b.id} className="list-item">
             <Link to={`/batter/${b.id}`} className="grow" style={{ color: 'var(--text)' }}>
-              {b.number ? `#${b.number} ` : ''}{b.name} <span className="pill">bats {b.bats}</span>
+              {b.number ? `#${b.number} ` : ''}{displayName(b)} <span className="pill">bats {b.bats}</span>
             </Link>
             <button className="small" onClick={() => startEdit(b.id)}>Edit</button>
             <button className="small danger" onClick={() => removeBatter(b.id)}>✕</button>
@@ -87,10 +91,14 @@ export default function Roster() {
         <strong>{editingId !== null ? 'Edit batter' : 'Add batter'}</strong>
         <div className="row">
           <div className="grow">
-            <label>Name</label>
-            <input value={name} onChange={(e) => setName(e.target.value)} placeholder="Batter name" />
+            <label>First name</label>
+            <input value={firstName} onChange={(e) => setFirstName(e.target.value)} placeholder="First" />
           </div>
-          <div style={{ width: 80 }}>
+          <div className="grow">
+            <label>Last name</label>
+            <input value={lastName} onChange={(e) => setLastName(e.target.value)} placeholder="Last" />
+          </div>
+          <div style={{ width: 64 }}>
             <label>#</label>
             <input value={number} onChange={(e) => setNumber(e.target.value)} placeholder="12" inputMode="numeric" />
           </div>

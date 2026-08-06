@@ -6,7 +6,7 @@ import {
   SortableContext, verticalListSortingStrategy, arrayMove, useSortable,
 } from '@dnd-kit/sortable'
 import { CSS } from '@dnd-kit/utilities'
-import type { Batter } from '../db'
+import { displayName, type Batter } from '../db'
 
 // Drag-to-reorder list of batters. `order` is an array of batterIds; onChange
 // gets the new order. Touch-capable so it works on a phone at the field.
@@ -21,12 +21,12 @@ function Row({ batter, index }: { batter: Batter; index: number }) {
   return (
     <div ref={setNodeRef} style={style} className="list-item lineup-row">
       <span className="lineup-num">{index + 1}</span>
-      <span className="grow">{batter.number ? `#${batter.number} ` : ''}{batter.name}</span>
+      <span className="grow">{batter.number ? `#${batter.number} ` : ''}{displayName(batter)}</span>
       <span className="pill">bats {batter.bats}</span>
       <button
         type="button"
         className="drag-handle"
-        aria-label={`Drag ${batter.name}`}
+        aria-label={`Drag ${displayName(batter)}`}
         {...attributes}
         {...listeners}
       >

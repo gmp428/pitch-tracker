@@ -1,6 +1,6 @@
 import { Link } from 'react-router-dom'
 import { useLiveQuery } from 'dexie-react-hooks'
-import { db, pitcherArsenal, zoneLabel, type Batter } from '../db'
+import { db, displayName, pitcherArsenal, zoneLabel, type Batter } from '../db'
 import { pct } from '../lib/stats'
 import { suggestPitch, TIER_LABELS } from '../lib/suggest'
 
@@ -24,7 +24,7 @@ export default function SuggestionPanel({ batter, currentPitcherId }: { batter: 
   if (!result) {
     return (
       <div className="suggestion" style={{ borderLeftColor: 'var(--border)' }}>
-        <div className="muted">No history on {batter.name} yet — data builds as you log pitches.</div>
+        <div className="muted">No history on {displayName(batter)} yet — data builds as you log pitches.</div>
       </div>
     )
   }

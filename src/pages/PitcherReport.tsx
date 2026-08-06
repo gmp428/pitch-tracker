@@ -1,7 +1,7 @@
 import { useState } from 'react'
 import { Link, useNavigate, useParams } from 'react-router-dom'
 import { useLiveQuery } from 'dexie-react-hooks'
-import { db, pitcherArsenal } from '../db'
+import { db, displayName, fullName, pitcherArsenal } from '../db'
 import ZoneGrid from '../components/ZoneGrid'
 import {
   aggregate, byPitchType, byZoneBattle, filterByWindow, pct, successRate,
@@ -40,7 +40,7 @@ export default function PitcherReport() {
     <main>
       <button className="small" style={{ marginTop: 10 }} onClick={() => navigate(-1)}>‹ Back</button>
       <h1>
-        {pitcher.number ? `#${pitcher.number} ` : ''}{pitcher.name}{' '}
+        {pitcher.number ? `#${pitcher.number} ` : ''}{fullName(pitcher)}{' '}
         <span className="pill">throws {pitcher.throws}</span>
       </h1>
       <p className="muted">
@@ -100,7 +100,7 @@ export default function PitcherReport() {
                 const b = allBatters.find((x) => x.id === bid)
                 return (
                   <tr key={bid}>
-                    <td><Link to={`/batter/${bid}`}>{b?.name ?? '?'}</Link></td>
+                    <td><Link to={`/batter/${bid}`}>{displayName(b)}</Link></td>
                     <td className="num">{a.total}</td>
                     <td className="num">{a.hits}</td>
                     <td className="num">{pct(successRate(a))}</td>
