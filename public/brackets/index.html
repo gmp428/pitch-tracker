@@ -1,0 +1,153 @@
+<!DOCTYPE html>
+<html lang="en">
+	<head>
+		<meta charset="UTF-8" />
+		<meta
+			name="viewport"
+			content="width=device-width, initial-scale=1.0, viewport-fit=cover, maximum-scale=1.0, user-scalable=no"
+		/>
+		<meta name="theme-color" content="#0b0f1a" />
+		<meta name="apple-mobile-web-app-capable" content="yes" />
+		<meta name="mobile-web-app-capable" content="yes" />
+		<meta
+			name="apple-mobile-web-app-status-bar-style"
+			content="black-translucent"
+		/>
+		<meta name="apple-mobile-web-app-title" content="Brackets" />
+		<meta
+			name="description"
+			content="Create players, seed randomly, and run single or double elimination tournament brackets — fully offline."
+		/>
+		<link rel="manifest" href="manifest.webmanifest" />
+		<link rel="icon" href="icons/icon.svg" type="image/svg+xml" />
+		<link rel="apple-touch-icon" href="icons/apple-touch-icon.png" />
+		<link rel="stylesheet" href="styles.css" />
+		<title>Brackets</title>
+	</head>
+	<body>
+		<header class="app-header">
+			<div class="brand">
+				<span class="brand-mark" aria-hidden="true">🏆</span>
+				<h1>Brackets</h1>
+			</div>
+			<button id="newBtn" class="ghost-btn" hidden>New</button>
+		</header>
+
+		<main id="app">
+			<!-- ============ SETUP VIEW ============ -->
+			<section id="setupView" class="view">
+				<div class="card">
+					<h2>Players</h2>
+					<form id="addForm" class="add-row" autocomplete="off">
+						<input
+							id="playerName"
+							type="text"
+							inputmode="text"
+							placeholder="Add a player…"
+							maxlength="40"
+							aria-label="Player name"
+						/>
+						<button type="submit" class="primary-btn add-btn">Add</button>
+					</form>
+					<p class="hint" id="playersHint">Add at least 2 players to begin.</p>
+					<ul id="playerList" class="player-list"></ul>
+				</div>
+
+				<div class="card">
+					<h2>Format</h2>
+					<div class="segmented" role="radiogroup" aria-label="Elimination format">
+						<button
+							class="seg-btn active"
+							data-format="single"
+							role="radio"
+							aria-checked="true"
+						>
+							<strong>Single</strong>
+							<small>One loss and you're out</small>
+						</button>
+						<button
+							class="seg-btn"
+							data-format="double"
+							role="radio"
+							aria-checked="false"
+						>
+							<strong>Double</strong>
+							<small>Losers bracket second chance</small>
+						</button>
+					</div>
+
+					<h2 class="mt">Seeding</h2>
+					<label class="switch-row">
+						<span>
+							<strong>Randomize seeding</strong>
+							<small>Shuffle players into the bracket</small>
+						</span>
+						<input type="checkbox" id="randomSeed" checked />
+						<span class="switch" aria-hidden="true"></span>
+					</label>
+				</div>
+
+				<button id="generateBtn" class="primary-btn big" disabled>
+					Generate bracket
+				</button>
+			</section>
+
+			<!-- ============ BRACKET VIEW ============ -->
+			<section id="bracketView" class="view" hidden>
+				<div id="championBanner" class="champion-banner" hidden></div>
+
+				<div class="bracket-toolbar">
+					<div id="formatBadge" class="badge"></div>
+					<div class="toolbar-actions">
+						<button id="reseedBtn" class="ghost-btn small">Re-seed & restart</button>
+					</div>
+				</div>
+
+				<div class="bracket-scroll" id="bracketScroll">
+					<div class="bracket-section" id="wbSection">
+						<h3 class="section-title" id="wbTitle">Bracket</h3>
+						<div class="rounds" id="wbRounds"></div>
+					</div>
+					<div class="bracket-section" id="lbSection" hidden>
+						<h3 class="section-title">Losers bracket</h3>
+						<div class="rounds" id="lbRounds"></div>
+					</div>
+					<div class="bracket-section" id="gfSection" hidden>
+						<h3 class="section-title">Grand final</h3>
+						<div class="rounds" id="gfRounds"></div>
+					</div>
+				</div>
+			</section>
+		</main>
+
+		<!-- ============ RESULT DIALOG ============ -->
+		<dialog id="resultDialog" class="result-dialog">
+			<form method="dialog" id="resultForm">
+				<h3 id="resultTitle">Log result</h3>
+				<p class="dialog-sub" id="resultSub"></p>
+				<div class="pick-list" id="pickList"></div>
+				<menu class="dialog-actions two">
+					<button value="cancel" class="ghost-btn" type="submit">Cancel</button>
+					<button value="save" class="primary-btn" id="saveResultBtn" type="submit" disabled>
+						Save result
+					</button>
+				</menu>
+			</form>
+		</dialog>
+
+		<!-- ============ CONFIRM DIALOG ============ -->
+		<dialog id="confirmDialog" class="result-dialog">
+			<form method="dialog">
+				<h3 id="confirmTitle">Are you sure?</h3>
+				<p class="dialog-sub" id="confirmSub"></p>
+				<menu class="dialog-actions two">
+					<button value="cancel" class="ghost-btn">Cancel</button>
+					<button value="ok" class="danger-btn" id="confirmOk">Confirm</button>
+				</menu>
+			</form>
+		</dialog>
+
+		<script src="bracket.js"></script>
+		<script src="app.js"></script>
+	</body>
+</html>

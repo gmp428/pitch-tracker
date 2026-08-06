@@ -8,6 +8,12 @@ export default defineConfig({
     react(),
     VitePWA({
       registerType: 'autoUpdate',
+      // The standalone Brackets app lives at /pitch-tracker/brackets/ and ships
+      // its own service worker. Keep Pitch Tracker's worker out of it entirely.
+      workbox: {
+        globIgnores: ['brackets/**'],
+        navigateFallbackDenylist: [/^\/pitch-tracker\/brackets\//],
+      },
       manifest: {
         name: 'Pitch Tracker',
         short_name: 'PitchTrack',
