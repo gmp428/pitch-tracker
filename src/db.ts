@@ -59,6 +59,7 @@ export interface Game {
   label?: string
   status: 'active' | 'finished'
   currentPitcherId?: string
+  lineup?: string[] // ordered batterIds — the opponent's batting order for this game
   updatedAt: number
 }
 
@@ -227,4 +228,25 @@ export async function importAll(data: BackupFile): Promise<void> {
     await db.atBats.bulkAdd(data.atBats)
     await db.pitches.bulkAdd(data.pitches)
   })
+}
+
+// ---------- Lineup ----------
+
+// A game's default batting order: start from the most recent finished game's
+// lineup for this opponent, drop batters no longer on the roster, then append
+// any roster batters not already in it. Falls back to plain roster order.
+export async function defaultLineup(opponentId: string): Promise<string[]> {
+  const roster = await db.batters.where('opponentId').equals(opponentId).toArray()
+  const rosterIds = roster.map((b) => b.id)
+  const rosterSet = new Set(rosterIds)
+
+  const games = await db.games.where('opponentId').equals(opponentId).toArray()
+  const prev = games
+    .filter((g) => g.status === 'finished' && g.lineup && g.lineup.length > 0)
+    .sort((a, b) => b.updatedAt - a.updatedAt)[0]
+
+  if (!prev?.lineup) return rosterIds
+  const kept = prev.lineup.filter((id) => rosterSet.has(id))
+  const appended = rosterIds.filter((id) => !kept.includes(id))
+  return [...kept, ...appended]
 }

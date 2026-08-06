@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import { useNavigate, useParams } from 'react-router-dom'
 import { useLiveQuery } from 'dexie-react-hooks'
 import {
@@ -7,7 +7,17 @@ import {
 } from '../db'
 import ZoneGrid from '../components/ZoneGrid'
 import SuggestionPanel from '../components/SuggestionPanel'
+import LineupEditor from '../components/LineupEditor'
 import { battleAgg, battleRate, byZoneBattle, outcomeBreakdown, pct } from '../lib/stats'
+
+// The next batter in the order after `currentId`, cycling back to the top.
+// Falls back to the leadoff hitter if the current batter isn't in the order.
+function nextInLineup(lineup: string[] | undefined, currentId: string): string | undefined {
+  if (!lineup || lineup.length === 0) return undefined
+  const idx = lineup.indexOf(currentId)
+  if (idx === -1) return lineup[0]
+  return lineup[(idx + 1) % lineup.length]
+}
 
 export default function LiveGame() {
   const { id } = useParams()
@@ -34,6 +44,7 @@ export default function LiveGame() {
     [openAtBat?.id],
   )
   const gamePitchCount = useLiveQuery(() => db.pitches.where('gameId').equals(gameId).count(), [gameId])
+  const atBatCount = useLiveQuery(() => db.atBats.where('gameId').equals(gameId).count(), [gameId])
   // All history on the current batter, live-updating as pitches are logged
   const batterHistory = useLiveQuery(
     () => (openAtBat ? db.pitches.where('batterId').equals(openAtBat.batterId).toArray() : Promise.resolve([] as Pitch[])),
@@ -47,6 +58,9 @@ export default function LiveGame() {
   const [scope, setScope] = useState<'all' | 'pitcher'>('all')
   // Showing the "wrong batter — switch to…" picker
   const [changingBatter, setChangingBatter] = useState(false)
+  // Showing the drag-to-reorder lineup panel
+  const [showLineup, setShowLineup] = useState(false)
+  const bootingRef = useRef(false)
 
   // If a pitcher change removes the selected pitch type from the arsenal, clear it
   useEffect(() => {
@@ -58,6 +72,18 @@ export default function LiveGame() {
     setScope('all')
     setChangingBatter(false)
   }, [openAtBat?.batterId])
+
+  // Auto-start the leadoff hitter when an active game has no at-bats yet.
+  useEffect(() => {
+    if (!game || game.status !== 'active') return
+    if (atBatCount !== 0) return // undefined = loading; >0 = already underway
+    const lineup = game.lineup
+    if (!lineup || lineup.length === 0 || bootingRef.current) return
+    bootingRef.current = true
+    db.atBats
+      .add({ id: newId(), gameId, batterId: lineup[0], pitcherId: game.currentPitcherId!, startedAt: Date.now(), updatedAt: now() })
+      .finally(() => { bootingRef.current = false })
+  }, [game?.status, atBatCount, game?.lineup, game?.currentPitcherId, gameId])
 
   if (!game || !opponent || !roster || !pitchers || !pitchTypes) return null
 
@@ -81,9 +107,24 @@ export default function LiveGame() {
       setChangingBatter(false)
       return
     }
-    await db.transaction('rw', db.atBats, db.pitches, async () => {
+    // Correct the batting order too, so the fix is remembered: put the chosen
+    // batter into the current lineup slot (swap with wherever they were).
+    const lineup = game.lineup ? [...game.lineup] : []
+    const curIdx = lineup.indexOf(openAtBat.batterId)
+    if (curIdx !== -1) {
+      const j = lineup.indexOf(newBatterId)
+      if (j !== -1) {
+        ;[lineup[curIdx], lineup[j]] = [lineup[j], lineup[curIdx]]
+      } else {
+        const displaced = lineup[curIdx]
+        lineup[curIdx] = newBatterId
+        lineup.push(displaced)
+      }
+    }
+    await db.transaction('rw', db.atBats, db.pitches, db.games, async () => {
       await db.atBats.update(openAtBat.id, { batterId: newBatterId, updatedAt: now() })
       await db.pitches.where('atBatId').equals(openAtBat.id).modify({ batterId: newBatterId, updatedAt: now() })
+      if (curIdx !== -1) await db.games.update(gameId, { lineup, updatedAt: now() })
     })
     setChangingBatter(false)
   }
@@ -126,7 +167,18 @@ export default function LiveGame() {
         ts: Date.now(),
         updatedAt: now(),
       })
-      if (outcome) await db.atBats.update(openAtBat.id, { outcome, updatedAt: now() })
+      if (outcome) {
+        await db.atBats.update(openAtBat.id, { outcome, updatedAt: now() })
+        // Auto-advance: open the next batter's at-bat per the lineup order.
+        const nextId = nextInLineup(game.lineup, openAtBat.batterId)
+        if (nextId) {
+          await db.atBats.add({
+            id: newId(), gameId, batterId: nextId,
+            pitcherId: game.currentPitcherId ?? openAtBat.pitcherId,
+            startedAt: Date.now(), updatedAt: now(),
+          })
+        }
+      }
     })
     setSelType(null)
     setSelZone(null)
@@ -192,6 +244,24 @@ export default function LiveGame() {
         <button className="small" onClick={undo} disabled={!gamePitchCount && !openAtBat}>↩ Undo</button>
       </div>
 
+      <div className="row" style={{ marginTop: 8 }}>
+        <button className="small" onClick={() => setShowLineup((v) => !v)}>
+          {showLineup ? 'Close lineup' : '☰ Batting order'}
+        </button>
+        <button className="small danger" onClick={endGame}>End game</button>
+      </div>
+
+      {showLineup && game.lineup && (
+        <div className="card stack">
+          <strong>Batting order — drag ≡ to reorder</strong>
+          <LineupEditor
+            order={game.lineup}
+            batters={roster}
+            onChange={(o) => db.games.update(gameId, { lineup: o, updatedAt: now() })}
+          />
+        </div>
+      )}
+
       {!openAtBat && (
         <>
           <h2>Who’s up to bat?</h2>
@@ -207,7 +277,6 @@ export default function LiveGame() {
               </button>
             ))}
           </div>
-          <button className="danger" style={{ width: '100%', marginTop: 12 }} onClick={endGame}>End game</button>
         </>
       )}
 

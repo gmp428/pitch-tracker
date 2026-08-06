@@ -1,7 +1,7 @@
 import { useState } from 'react'
 import { Link, useNavigate } from 'react-router-dom'
 import { useLiveQuery } from 'dexie-react-hooks'
-import { db, newId, now } from '../db'
+import { db, defaultLineup, newId, now } from '../db'
 
 export default function NewGame() {
   const navigate = useNavigate()
@@ -16,12 +16,14 @@ export default function NewGame() {
   const start = async () => {
     if (opponentId === null || pitcherId === null) return
     const gameId = newId()
+    const lineup = await defaultLineup(opponentId)
     await db.games.add({
       id: gameId,
       opponentId,
       date,
       status: 'active',
       currentPitcherId: pitcherId,
+      lineup,
       updatedAt: now(),
     })
     navigate(`/game/${gameId}`)
