@@ -2,7 +2,7 @@ import { useEffect, useRef, useState } from 'react'
 import { useNavigate, useParams } from 'react-router-dom'
 import { useLiveQuery } from 'dexie-react-hooks'
 import {
-  db, displayName, newId, now, pitcherArsenal, resultLabel, zoneLabel,
+  CAPTURE_PRESETS, db, displayName, getSettings, newId, now, pitcherArsenal, resultLabel, zoneLabel,
   type AtBatOutcome, type Batter, type InPlayOutcome, type Pitch, type PitchResult, type Zone,
 } from '../db'
 import ZoneGrid from '../components/ZoneGrid'
@@ -35,6 +35,7 @@ export default function LiveGame() {
   )
   const pitchers = useLiveQuery(() => db.pitchers.toArray(), [])
   const pitchTypes = useLiveQuery(() => db.pitchTypes.toArray(), [])
+  const settings = useLiveQuery(() => getSettings(), [])
   const openAtBat = useLiveQuery(
     () => db.atBats.where('gameId').equals(gameId).filter((ab) => ab.outcome === undefined).first(),
     [gameId],
@@ -90,6 +91,7 @@ export default function LiveGame() {
   const batter = openAtBat ? roster.find((b) => b.id === openAtBat.batterId) : undefined
   const currentPitcher = pitchers.find((p) => p.id === game.currentPitcherId)
   const arsenal = pitcherArsenal(currentPitcher, pitchTypes)
+  const cap = settings?.capture ?? CAPTURE_PRESETS.standard
 
   // The batting order to drive auto-advance / the lineup panel. Always falls
   // back to roster order so a game with no saved lineup still works.
@@ -399,16 +401,28 @@ export default function LiveGame() {
                 {!showInPlay ? (
                   <div className="result-grid">
                     <button onClick={() => commit('ball')}>Ball</button>
-                    <button onClick={() => commit('called_strike')}>Called strike</button>
-                    <button onClick={() => commit('swinging_strike')}>Swinging strike</button>
+                    {cap.strikeType ? (
+                      <>
+                        <button onClick={() => commit('called_strike')}>Called strike</button>
+                        <button onClick={() => commit('swinging_strike')}>Swinging strike</button>
+                      </>
+                    ) : (
+                      <button onClick={() => commit('called_strike')}>Strike</button>
+                    )}
                     <button onClick={() => commit('foul')}>Foul</button>
                     <button className="wide primary" onClick={() => setShowInPlay(true)}>In play…</button>
                   </div>
-                ) : (
+                ) : cap.inPlayDetail ? (
                   <div className="result-grid">
                     {inPlayOptions.map(([value, label]) => (
                       <button key={value} onClick={() => commit('in_play', value)}>{label}</button>
                     ))}
+                    <button className="wide" onClick={() => setShowInPlay(false)}>‹ Back</button>
+                  </div>
+                ) : (
+                  <div className="result-grid">
+                    <button onClick={() => commit('in_play', 'out')}>Out</button>
+                    <button onClick={() => commit('in_play', 'single')}>Hit</button>
                     <button className="wide" onClick={() => setShowInPlay(false)}>‹ Back</button>
                   </div>
                 )}

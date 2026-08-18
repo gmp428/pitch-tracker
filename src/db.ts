@@ -126,6 +126,71 @@ export interface Pitch {
   updatedAt: number
 }
 
+// ---------- App settings (logging detail level) ----------
+// A single global preference row (id: 'app') controlling how much a coach logs
+// per pitch. `capture` flags gate individual capture steps; a preset sets a
+// sensible bundle of them (or 'custom' once toggled off-preset).
+
+export type LoggingPreset = 'quick' | 'standard' | 'detailed' | 'custom'
+
+export interface CaptureFlags {
+  strikeType: boolean       // called vs swinging strike (off → single "Strike")
+  inPlayDetail: boolean     // full hit types (off → just Out / Hit)
+  // Future capture steps — flags exist so the UI can gate them as they ship.
+  inning: boolean
+  intendedLocation: boolean
+  fieldPosition: boolean
+  hbp: boolean
+  battedBallType: boolean
+}
+
+export interface AppSettings {
+  id: 'app'
+  preset: LoggingPreset
+  capture: CaptureFlags
+  updatedAt: number
+}
+
+const CAPTURE_QUICK: CaptureFlags = {
+  strikeType: false, inPlayDetail: false,
+  inning: false, intendedLocation: false, fieldPosition: false, hbp: false, battedBallType: false,
+}
+const CAPTURE_STANDARD: CaptureFlags = {
+  strikeType: true, inPlayDetail: true,
+  inning: false, intendedLocation: false, fieldPosition: false, hbp: false, battedBallType: false,
+}
+const CAPTURE_DETAILED: CaptureFlags = {
+  strikeType: true, inPlayDetail: true,
+  inning: true, intendedLocation: true, fieldPosition: true, hbp: true, battedBallType: true,
+}
+
+export const CAPTURE_PRESETS: Record<'quick' | 'standard' | 'detailed', CaptureFlags> = {
+  quick: CAPTURE_QUICK,
+  standard: CAPTURE_STANDARD,
+  detailed: CAPTURE_DETAILED,
+}
+
+// Capture flags that actually change logging today. The rest are shown in
+// Settings as "coming soon" so the framework is visible but honest.
+export const LIVE_CAPTURE_FLAGS: Array<keyof CaptureFlags> = ['strikeType', 'inPlayDetail']
+
+export function defaultSettings(): AppSettings {
+  return { id: 'app', preset: 'standard', capture: { ...CAPTURE_STANDARD }, updatedAt: now() }
+}
+
+// The stored settings row, or the default when none has been saved yet (existing
+// databases predate the row — behavior stays identical until a coach changes it).
+export async function getSettings(): Promise<AppSettings> {
+  const s = await db.settings.get('app')
+  if (!s) return defaultSettings()
+  return { ...s, capture: { ...CAPTURE_STANDARD, ...s.capture } }
+}
+
+export async function saveSettings(patch: Partial<Omit<AppSettings, 'id'>>): Promise<void> {
+  const current = await getSettings()
+  await db.settings.put({ ...current, ...patch, id: 'app', updatedAt: now() })
+}
+
 // ---------- Database ----------
 
 // Primary keys are supplied by us (UUIDs), not auto-incremented. The database
@@ -139,6 +204,7 @@ export const db = new Dexie('pitch-tracker-v2') as Dexie & {
   games: EntityTable<Game, 'id'>
   atBats: EntityTable<AtBat, 'id'>
   pitches: EntityTable<Pitch, 'id'>
+  settings: EntityTable<AppSettings, 'id'>
 }
 
 db.version(1).stores({
@@ -149,6 +215,12 @@ db.version(1).stores({
   games: 'id, opponentId, status, updatedAt',
   atBats: 'id, gameId, batterId, pitcherId, updatedAt',
   pitches: 'id, gameId, atBatId, batterId, pitcherId, ts, updatedAt',
+})
+
+// v2 adds the singleton app-settings store (logging detail level). Additive and
+// non-destructive — existing rows in the other stores are carried over as-is.
+db.version(2).stores({
+  settings: 'id',
 })
 
 // Discard the legacy integer-keyed database from before the UUID switch.
@@ -212,6 +284,7 @@ export interface BackupFile {
   games: Game[]
   atBats: AtBat[]
   pitches: Pitch[]
+  settings?: AppSettings[] // optional: older backups predate app settings
 }
 
 export async function exportAll(): Promise<BackupFile> {
@@ -226,6 +299,7 @@ export async function exportAll(): Promise<BackupFile> {
     games: await db.games.toArray(),
     atBats: await db.atBats.toArray(),
     pitches: await db.pitches.toArray(),
+    settings: await db.settings.toArray(),
   }
 }
 
@@ -233,10 +307,11 @@ export async function importAll(data: BackupFile): Promise<void> {
   if (data.app !== 'pitch-tracker' || !Array.isArray(data.pitches)) {
     throw new Error('This file does not look like a Pitch Tracker backup.')
   }
-  await db.transaction('rw', [db.opponents, db.batters, db.pitchers, db.pitchTypes, db.games, db.atBats, db.pitches], async () => {
+  await db.transaction('rw', [db.opponents, db.batters, db.pitchers, db.pitchTypes, db.games, db.atBats, db.pitches, db.settings], async () => {
     await Promise.all([
       db.opponents.clear(), db.batters.clear(), db.pitchers.clear(),
       db.pitchTypes.clear(), db.games.clear(), db.atBats.clear(), db.pitches.clear(),
+      db.settings.clear(),
     ])
     await db.opponents.bulkAdd(data.opponents)
     await db.batters.bulkAdd(data.batters)
@@ -245,6 +320,9 @@ export async function importAll(data: BackupFile): Promise<void> {
     await db.games.bulkAdd(data.games)
     await db.atBats.bulkAdd(data.atBats)
     await db.pitches.bulkAdd(data.pitches)
+    // Older backups predate settings — restore the row if present, else leave
+    // the store empty so getSettings() falls back to the default.
+    if (data.settings?.length) await db.settings.bulkAdd(data.settings)
   })
 }
 

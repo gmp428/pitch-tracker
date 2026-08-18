@@ -1,11 +1,40 @@
 import { useRef, useState } from 'react'
 import { useLiveQuery } from 'dexie-react-hooks'
-import { db, exportAll, importAll, newId, now, type BackupFile } from '../db'
+import {
+  CAPTURE_PRESETS, LIVE_CAPTURE_FLAGS, db, exportAll, getSettings, importAll, newId, now, saveSettings,
+  type BackupFile, type CaptureFlags,
+} from '../db'
+
+const PRESETS: Array<{ key: 'quick' | 'standard' | 'detailed'; label: string; blurb: string }> = [
+  { key: 'quick', label: 'Quick', blurb: 'Fewest taps — pitch, spot, ball/strike/foul, out or hit.' },
+  { key: 'standard', label: 'Standard', blurb: 'Called vs swinging strikes and full hit types (default).' },
+  { key: 'detailed', label: 'Detailed', blurb: 'Everything, including advanced capture as it ships.' },
+]
+
+const CAPTURE_LABELS: Array<{ key: keyof CaptureFlags; label: string; help: string }> = [
+  { key: 'strikeType', label: 'Strike detail', help: 'Distinguish called vs swinging strikes.' },
+  { key: 'inPlayDetail', label: 'Hit detail', help: 'Log single / double / triple / HR / error (vs just Out / Hit).' },
+  { key: 'inning', label: 'Inning tags', help: 'Tag each pitch by inning (top / bottom).' },
+  { key: 'intendedLocation', label: 'Intended location', help: 'Record the target spot vs where it finished.' },
+  { key: 'fieldPosition', label: 'Ball-in-play location', help: 'Field diamond — where the ball was hit.' },
+  { key: 'hbp', label: 'Hit-by-pitch', help: 'HBP as a pitch outcome.' },
+  { key: 'battedBallType', label: 'Batted-ball type', help: 'Ground/fly/line, bunt, hard/soft hit, fielder’s choice.' },
+]
 
 export default function Settings() {
   const pitchTypes = useLiveQuery(() => db.pitchTypes.toArray(), [])
+  const settings = useLiveQuery(() => getSettings(), [])
+  const [showAdvanced, setShowAdvanced] = useState(false)
   const [newName, setNewName] = useState('')
   const fileInput = useRef<HTMLInputElement>(null)
+
+  const selectPreset = (key: 'quick' | 'standard' | 'detailed') =>
+    saveSettings({ preset: key, capture: { ...CAPTURE_PRESETS[key] } })
+
+  const toggleFlag = (key: keyof CaptureFlags) => {
+    if (!settings) return
+    saveSettings({ preset: 'custom', capture: { ...settings.capture, [key]: !settings.capture[key] } })
+  }
 
   const addType = async (e: React.FormEvent) => {
     e.preventDefault()
@@ -53,11 +82,58 @@ export default function Settings() {
     }
   }
 
-  if (!pitchTypes) return null
+  if (!pitchTypes || !settings) return null
 
   return (
     <main>
       <h1>Settings</h1>
+
+      <h2>Logging detail</h2>
+      <p className="muted">How much to capture per pitch. Keep it quick, or opt into more detail.</p>
+      <div className="chips">
+        {PRESETS.map((p) => (
+          <button
+            key={p.key}
+            className={`chip ${settings.preset === p.key ? 'on' : ''}`}
+            onClick={() => selectPreset(p.key)}
+          >
+            {p.label}
+          </button>
+        ))}
+        {settings.preset === 'custom' && <span className="chip on">Custom</span>}
+      </div>
+      <p className="muted" style={{ marginTop: 0 }}>
+        {settings.preset === 'custom'
+          ? 'Custom — individual fields set below.'
+          : PRESETS.find((p) => p.key === settings.preset)?.blurb}
+      </p>
+
+      <button className="small" onClick={() => setShowAdvanced((v) => !v)}>
+        {showAdvanced ? 'Hide advanced' : 'Advanced — pick individual fields'}
+      </button>
+      {showAdvanced && (
+        <div className="list" style={{ marginTop: 8 }}>
+          {CAPTURE_LABELS.map(({ key, label, help }) => {
+            const live = LIVE_CAPTURE_FLAGS.includes(key)
+            const on = settings.capture[key]
+            return (
+              <div key={key} className="list-item" style={{ opacity: live ? 1 : 0.6 }}>
+                <div className="grow">
+                  <div>{label} {!live && <span className="pill">coming soon</span>}</div>
+                  <div className="muted">{help}</div>
+                </div>
+                <button
+                  className={`chip small-chip ${on ? 'on' : ''}`}
+                  disabled={!live}
+                  onClick={() => toggleFlag(key)}
+                >
+                  {on ? 'On' : 'Off'}
+                </button>
+              </div>
+            )
+          })}
+        </div>
+      )}
 
       <h2>Pitch types</h2>
       <div className="list">
