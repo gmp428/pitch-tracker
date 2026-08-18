@@ -1,7 +1,7 @@
 import { useState } from 'react'
 import { Link, useNavigate, useParams } from 'react-router-dom'
 import { useLiveQuery } from 'dexie-react-hooks'
-import { db, displayName, fullName, outcomeLabel } from '../db'
+import { db, displayName, fullName, outcomeLabel, resultLabel, zoneLabel } from '../db'
 import ZoneGrid from '../components/ZoneGrid'
 import {
   aggregate, byCount, byPitcher, byPitchType, byZoneBattle, filterByWindow,
@@ -28,6 +28,7 @@ export default function BatterReport() {
 
   const [win, setWin] = useState<TimeWindow>('all')
   const [pitcherFilter, setPitcherFilter] = useState<string | 'all'>('all')
+  const [expandedAb, setExpandedAb] = useState<string | null>(null)
 
   if (!batter || !opponent || !pitches || !atBats || !allGames || !pitchers || !pitchTypes) return null
 
@@ -52,6 +53,7 @@ export default function BatterReport() {
     .sort((a, b) => b.startedAt - a.startedAt)
 
   const gameById = new Map(allGames.map((g) => [g.id, g]))
+  const pitchTypeById = new Map(pitchTypes.map((t) => [t.id, t.name]))
   const pitcherName = (pid: string) => displayName(pitchers.find((p) => p.id === pid))
 
   return (
@@ -181,14 +183,43 @@ export default function BatterReport() {
       {historyAtBats.length > 0 && (
         <>
           <h2>At-bat history</h2>
+          <p className="muted">Tap an at-bat to see its pitch-by-pitch sequence.</p>
           <div className="list">
-            {historyAtBats.map((ab) => (
-              <div key={ab.id} className="list-item">
-                <span>{outcomeLabel(ab.outcome!)}</span>
-                <span className="muted">vs {pitcherName(ab.pitcherId)}</span>
-                <span className="chev">{gameById.get(ab.gameId)?.date ?? ''}</span>
-              </div>
-            ))}
+            {historyAtBats.map((ab) => {
+              const open = expandedAb === ab.id
+              const seq = pitches
+                .filter((p) => p.atBatId === ab.id)
+                .sort((a, b) => a.seq - b.seq)
+              return (
+                <div key={ab.id}>
+                  <button
+                    className="list-item"
+                    style={{ width: '100%', cursor: 'pointer' }}
+                    onClick={() => setExpandedAb(open ? null : ab.id)}
+                  >
+                    <span>{outcomeLabel(ab.outcome!)}</span>
+                    <span className="muted">vs {pitcherName(ab.pitcherId)}</span>
+                    <span className="chev">
+                      {gameById.get(ab.gameId)?.date ?? ''} {open ? '▾' : '▸'}
+                    </span>
+                  </button>
+                  {open && (
+                    <div className="card stack" style={{ margin: '4px 0 8px' }}>
+                      {seq.length === 0 ? (
+                        <span className="muted">No pitches recorded for this at-bat.</span>
+                      ) : (
+                        seq.map((p) => (
+                          <span key={p.id} className="muted">
+                            {p.seq}. ({p.balls}-{p.strikes}){' '}
+                            {pitchTypeById.get(p.pitchTypeId) ?? 'Pitch'} · {zoneLabel(p.zone)} — {resultLabel(p)}
+                          </span>
+                        ))
+                      )}
+                    </div>
+                  )}
+                </div>
+              )
+            })}
           </div>
         </>
       )}
