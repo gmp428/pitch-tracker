@@ -78,6 +78,8 @@ export interface Game {
   status: 'active' | 'finished'
   currentPitcherId?: string
   lineup?: string[] // ordered batterIds — the opponent's batting order for this game
+  currentInning?: number // advances during the game (undefined = untracked, treat as 1)
+  half?: 'top' | 'bottom' // which half the opponent bats — constant for the game
   updatedAt: number
 }
 
@@ -90,6 +92,7 @@ export type AtBatOutcome =
   | 'triple'
   | 'home_run'
   | 'error'
+  | 'hbp'
 
 export interface AtBat {
   id: string
@@ -97,6 +100,7 @@ export interface AtBat {
   batterId: string
   pitcherId: string
   outcome?: AtBatOutcome
+  inning?: number // inning this at-bat occurred in (undefined = untracked)
   startedAt: number
   updatedAt: number
 }
@@ -105,7 +109,7 @@ export interface AtBat {
 // 1-9 are the strike zone (1 = up/left, 9 = down/right), o-* are out of the zone.
 export type Zone = 1 | 2 | 3 | 4 | 5 | 6 | 7 | 8 | 9 | 'o-up' | 'o-down' | 'o-left' | 'o-right'
 
-export type PitchResult = 'ball' | 'called_strike' | 'swinging_strike' | 'foul' | 'in_play'
+export type PitchResult = 'ball' | 'called_strike' | 'swinging_strike' | 'foul' | 'in_play' | 'hbp'
 
 export type InPlayOutcome = 'out' | 'single' | 'double' | 'triple' | 'home_run' | 'error'
 
@@ -122,6 +126,7 @@ export interface Pitch {
   zone: Zone
   result: PitchResult
   inPlay?: InPlayOutcome
+  inning?: number // inning this pitch was thrown in (undefined = untracked)
   ts: number
   updatedAt: number
 }
@@ -136,11 +141,11 @@ export type LoggingPreset = 'quick' | 'standard' | 'detailed' | 'custom'
 export interface CaptureFlags {
   strikeType: boolean       // called vs swinging strike (off → single "Strike")
   inPlayDetail: boolean     // full hit types (off → just Out / Hit)
+  hbp: boolean              // hit-by-pitch as a pitch outcome
+  inning: boolean           // tag pitches/at-bats by inning + inning control
   // Future capture steps — flags exist so the UI can gate them as they ship.
-  inning: boolean
   intendedLocation: boolean
   fieldPosition: boolean
-  hbp: boolean
   battedBallType: boolean
 }
 
@@ -152,16 +157,16 @@ export interface AppSettings {
 }
 
 const CAPTURE_QUICK: CaptureFlags = {
-  strikeType: false, inPlayDetail: false,
-  inning: false, intendedLocation: false, fieldPosition: false, hbp: false, battedBallType: false,
+  strikeType: false, inPlayDetail: false, hbp: false, inning: false,
+  intendedLocation: false, fieldPosition: false, battedBallType: false,
 }
 const CAPTURE_STANDARD: CaptureFlags = {
-  strikeType: true, inPlayDetail: true,
-  inning: false, intendedLocation: false, fieldPosition: false, hbp: false, battedBallType: false,
+  strikeType: true, inPlayDetail: true, hbp: true, inning: false,
+  intendedLocation: false, fieldPosition: false, battedBallType: false,
 }
 const CAPTURE_DETAILED: CaptureFlags = {
-  strikeType: true, inPlayDetail: true,
-  inning: true, intendedLocation: true, fieldPosition: true, hbp: true, battedBallType: true,
+  strikeType: true, inPlayDetail: true, hbp: true, inning: true,
+  intendedLocation: true, fieldPosition: true, battedBallType: true,
 }
 
 export const CAPTURE_PRESETS: Record<'quick' | 'standard' | 'detailed', CaptureFlags> = {
@@ -172,7 +177,7 @@ export const CAPTURE_PRESETS: Record<'quick' | 'standard' | 'detailed', CaptureF
 
 // Capture flags that actually change logging today. The rest are shown in
 // Settings as "coming soon" so the framework is visible but honest.
-export const LIVE_CAPTURE_FLAGS: Array<keyof CaptureFlags> = ['strikeType', 'inPlayDetail']
+export const LIVE_CAPTURE_FLAGS: Array<keyof CaptureFlags> = ['strikeType', 'inPlayDetail', 'hbp', 'inning']
 
 export function defaultSettings(): AppSettings {
   return { id: 'app', preset: 'standard', capture: { ...CAPTURE_STANDARD }, updatedAt: now() }
@@ -180,10 +185,14 @@ export function defaultSettings(): AppSettings {
 
 // The stored settings row, or the default when none has been saved yet (existing
 // databases predate the row — behavior stays identical until a coach changes it).
+// Named presets derive their capture flags from the preset definition (so updating
+// a preset instantly reaches everyone on it); only 'custom' uses stored flags,
+// merged over all-false so newly-added flags default off.
 export async function getSettings(): Promise<AppSettings> {
   const s = await db.settings.get('app')
   if (!s) return defaultSettings()
-  return { ...s, capture: { ...CAPTURE_STANDARD, ...s.capture } }
+  if (s.preset !== 'custom') return { ...s, capture: { ...CAPTURE_PRESETS[s.preset] } }
+  return { ...s, capture: { ...CAPTURE_QUICK, ...s.capture } }
 }
 
 export async function saveSettings(patch: Partial<Omit<AppSettings, 'id'>>): Promise<void> {
@@ -260,6 +269,7 @@ export function resultLabel(p: { result: PitchResult; inPlay?: InPlayOutcome }):
     case 'called_strike': return 'Called strike'
     case 'swinging_strike': return 'Swinging strike'
     case 'foul': return 'Foul'
+    case 'hbp': return 'Hit by pitch'
     case 'in_play': return `In play: ${outcomeLabel(p.inPlay!)}`
   }
 }
@@ -267,7 +277,7 @@ export function resultLabel(p: { result: PitchResult; inPlay?: InPlayOutcome }):
 export function outcomeLabel(o: AtBatOutcome | InPlayOutcome): string {
   return {
     walk: 'Walk', strikeout: 'Strikeout', out: 'Out', single: 'Single', double: 'Double',
-    triple: 'Triple', home_run: 'Home run', error: 'Reached on error',
+    triple: 'Triple', home_run: 'Home run', error: 'Reached on error', hbp: 'Hit by pitch',
   }[o]
 }
 

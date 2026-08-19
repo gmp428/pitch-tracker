@@ -132,7 +132,9 @@ export function battleAgg(pitches: Pitch[]): BattleAgg {
   const a: BattleAgg = { good: 0, bad: 0, balls: 0, total: 0 }
   for (const p of pitches) {
     a.total++
-    if (p.result === 'ball') a.balls++
+    // Balls and hit-by-pitches are neutral — not a strike, but the batter
+    // didn't win the pitch off contact either.
+    if (p.result === 'ball' || p.result === 'hbp') a.balls++
     else if (p.result === 'in_play' && p.inPlay !== 'out') a.bad++
     else a.good++
   }
@@ -171,6 +173,7 @@ export function outcomeBreakdown(pitches: Pitch[]): OutcomeSlice[] {
     else if (p.result === 'called_strike') bump('Called K')
     else if (p.result === 'swinging_strike') bump('Whiff')
     else if (p.result === 'foul') bump('Foul')
+    else if (p.result === 'hbp') bump('HBP')
     else if (p.inPlay === 'out') bump('Out')
     else bump('Hit')
   }
@@ -202,7 +205,8 @@ export function plateDiscipline(pitches: Pitch[]): PlateDiscipline {
     if (p.result === 'called_strike') called++
     if (p.balls === 0 && p.strikes === 0) {
       firstSeen++
-      if (p.result !== 'ball') firstStrikes++ // strike = anything not a ball
+      // strike = anything not a ball or hit-by-pitch
+      if (p.result !== 'ball' && p.result !== 'hbp') firstStrikes++
     }
   }
   const rate = (num: number, den: number) => (den === 0 ? null : num / den)

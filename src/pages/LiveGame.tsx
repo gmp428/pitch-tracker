@@ -82,7 +82,7 @@ export default function LiveGame() {
     if (lu.length === 0 || bootingRef.current) return
     bootingRef.current = true
     db.atBats
-      .add({ id: newId(), gameId, batterId: lu[0], pitcherId: game.currentPitcherId!, startedAt: Date.now(), updatedAt: now() })
+      .add({ id: newId(), gameId, batterId: lu[0], pitcherId: game.currentPitcherId!, inning: game.currentInning ?? 1, startedAt: Date.now(), updatedAt: now() })
       .finally(() => { bootingRef.current = false })
   }, [game?.status, atBatCount, game?.lineup, game?.currentPitcherId, gameId, roster])
 
@@ -92,6 +92,9 @@ export default function LiveGame() {
   const currentPitcher = pitchers.find((p) => p.id === game.currentPitcherId)
   const arsenal = pitcherArsenal(currentPitcher, pitchTypes)
   const cap = settings?.capture ?? CAPTURE_PRESETS.standard
+  const curInning = game.currentInning ?? 1
+  const half = game.half ?? 'top'
+  const halfLabel = half === 'top' ? 'Top' : 'Bot'
 
   // The batting order to drive auto-advance / the lineup panel. Always falls
   // back to roster order so a game with no saved lineup still works.
@@ -136,6 +139,7 @@ export default function LiveGame() {
       gameId,
       batterId,
       pitcherId: game.currentPitcherId!,
+      inning: game.currentInning ?? 1,
       startedAt: Date.now(),
       updatedAt: now(),
     })
@@ -144,14 +148,18 @@ export default function LiveGame() {
     setShowInPlay(false)
   }
 
+  const setInning = (n: number) => db.games.update(gameId, { currentInning: Math.max(1, n), updatedAt: now() })
+  const toggleHalf = () => db.games.update(gameId, { half: half === 'top' ? 'bottom' : 'top', updatedAt: now() })
+
   const commit = async (result: PitchResult, inPlay?: InPlayOutcome) => {
     if (!openAtBat || selType === null || selZone === null) return
     let outcome: AtBatOutcome | undefined
     if (result === 'ball' && balls + 1 >= 4) outcome = 'walk'
     else if ((result === 'called_strike' || result === 'swinging_strike') && strikes + 1 >= 3) outcome = 'strikeout'
+    else if (result === 'hbp') outcome = 'hbp'
     else if (result === 'in_play') outcome = inPlay
 
-    await db.transaction('rw', db.pitches, db.atBats, async () => {
+    await db.transaction('rw', db.pitches, db.atBats, db.games, async () => {
       await db.pitches.add({
         id: newId(),
         gameId,
@@ -165,17 +173,32 @@ export default function LiveGame() {
         zone: selZone,
         result,
         inPlay,
+        inning: curInning,
         ts: Date.now(),
         updatedAt: now(),
       })
       if (outcome) {
         await db.atBats.update(openAtBat.id, { outcome, updatedAt: now() })
+        // Inning auto-advance: once 3 outs are recorded in the current inning,
+        // roll to the next one so the next at-bat is stamped with it.
+        let nextInning = curInning
+        if (cap.inning && (outcome === 'out' || outcome === 'strikeout')) {
+          const gameAbs = await db.atBats.where('gameId').equals(gameId).toArray()
+          const outs = gameAbs.filter(
+            (a) => (a.inning ?? curInning) === curInning && (a.outcome === 'out' || a.outcome === 'strikeout'),
+          ).length
+          if (outs >= 3) {
+            nextInning = curInning + 1
+            await db.games.update(gameId, { currentInning: nextInning, updatedAt: now() })
+          }
+        }
         // Auto-advance: open the next batter's at-bat per the lineup order.
         const nextId = nextInLineup(order, openAtBat.batterId)
         if (nextId) {
           await db.atBats.add({
             id: newId(), gameId, batterId: nextId,
             pitcherId: game.currentPitcherId ?? openAtBat.pitcherId,
+            inning: nextInning,
             startedAt: Date.now(), updatedAt: now(),
           })
         }
@@ -251,6 +274,15 @@ export default function LiveGame() {
         </button>
         <button className="small danger" onClick={endGame}>End game</button>
       </div>
+
+      {cap.inning && (
+        <div className="row" style={{ marginTop: 8 }}>
+          <button className="small" onClick={() => setInning(curInning - 1)} disabled={curInning <= 1} aria-label="Previous inning">‹</button>
+          <button className="chip small-chip" onClick={toggleHalf} title="Switch top / bottom">{halfLabel}</button>
+          <span className="count-display" style={{ fontSize: '1.1rem' }}>Inning {curInning}</span>
+          <button className="small" onClick={() => setInning(curInning + 1)}>Next inning ▸</button>
+        </div>
+      )}
 
       {showLineup && (
         <div className="card stack">
@@ -410,6 +442,7 @@ export default function LiveGame() {
                       <button onClick={() => commit('called_strike')}>Strike</button>
                     )}
                     <button onClick={() => commit('foul')}>Foul</button>
+                    {cap.hbp && <button onClick={() => commit('hbp')}>HBP</button>}
                     <button className="wide primary" onClick={() => setShowInPlay(true)}>In play…</button>
                   </div>
                 ) : cap.inPlayDetail ? (

@@ -24,6 +24,8 @@ export default function NewGame() {
       status: 'active',
       currentPitcherId: pitcherId,
       lineup,
+      currentInning: 1,
+      half: 'top',
       updatedAt: now(),
     })
     navigate(`/game/${gameId}`)

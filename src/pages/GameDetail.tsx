@@ -19,6 +19,14 @@ export default function GameDetail() {
 
   const ordered = [...atBats].sort((a, b) => a.startedAt - b.startedAt)
 
+  const halfLabel = (game.half ?? 'top') === 'top' ? 'Top' : 'Bot'
+  const byInning = new Map<number, number>()
+  for (const p of pitches) {
+    const i = p.inning ?? 1
+    byInning.set(i, (byInning.get(i) ?? 0) + 1)
+  }
+  const inningRows = [...byInning.entries()].sort((a, b) => a[0] - b[0])
+
   const reopen = async () => {
     await db.games.update(gameId, { status: 'active', updatedAt: now() })
     navigate(`/game/${gameId}`)
@@ -35,6 +43,25 @@ export default function GameDetail() {
           : <Link to={`/game/${gameId}`} className="btn small">Back to live game</Link>}
       </div>
 
+      {inningRows.length > 1 && (
+        <>
+          <h2>Pitch count by inning</h2>
+          <table>
+            <thead>
+              <tr><th>Inning</th><th className="num">Pitches</th></tr>
+            </thead>
+            <tbody>
+              {inningRows.map(([inning, count]) => (
+                <tr key={inning}>
+                  <td>{halfLabel} {inning}</td>
+                  <td className="num">{count}</td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </>
+      )}
+
       {ordered.length === 0 && <p className="empty">Nothing logged in this game.</p>}
 
       {ordered.map((ab, i) => {
@@ -49,7 +76,9 @@ export default function GameDetail() {
               </strong>
               <span>{ab.outcome ? outcomeLabel(ab.outcome) : 'In progress'}</span>
             </div>
-            <div className="muted">pitched by {displayName(pitcher)}</div>
+            <div className="muted">
+              pitched by {displayName(pitcher)}{ab.inning ? ` · ${halfLabel} ${ab.inning}` : ''}
+            </div>
             <div className="stack" style={{ marginTop: 6 }}>
               {abPitches.map((p) => (
                 <div key={p.id} className="muted">

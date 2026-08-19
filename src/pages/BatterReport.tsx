@@ -190,6 +190,10 @@ export default function BatterReport() {
               const seq = pitches
                 .filter((p) => p.atBatId === ab.id)
                 .sort((a, b) => a.seq - b.seq)
+              const g = gameById.get(ab.gameId)
+              const inningLabel = ab.inning
+                ? `${(g?.half ?? 'top') === 'top' ? 'Top' : 'Bot'} ${ab.inning} · `
+                : ''
               return (
                 <div key={ab.id}>
                   <button
@@ -200,7 +204,7 @@ export default function BatterReport() {
                     <span>{outcomeLabel(ab.outcome!)}</span>
                     <span className="muted">vs {pitcherName(ab.pitcherId)}</span>
                     <span className="chev">
-                      {gameById.get(ab.gameId)?.date ?? ''} {open ? '▾' : '▸'}
+                      {inningLabel}{g?.date ?? ''} {open ? '▾' : '▸'}
                     </span>
                   </button>
                   {open && (
