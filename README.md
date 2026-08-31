@@ -1,6 +1,8 @@
-# 🥎 Pitch Tracker
+# VeloSync
 
 A phone-friendly web app for tracking softball pitch data. Log every pitch — type, location, and result — against opposing batters, and use that history to decide what to throw next time they're up.
+
+The live PWA stays at `https://gmp428.github.io/pitch-tracker/`. IndexedDB and backup files still use the `pitch-tracker` keys so existing data and exports keep working.
 
 ## What it does
 
@@ -30,4 +32,3 @@ Pushes to `main` deploy automatically to GitHub Pages via `.github/workflows/dep
 ## Roadmap
 
 - Iterate on features as a web app until the workflow feels right at the field
-- Then wrap the same codebase into native iOS/Android apps with [Capacitor](https://capacitorjs.com/)

@@ -8,6 +8,7 @@
   --muted: #45536a;
   --accent: #1d4ed8;    /* strong blue links */
   --accent-dark: #1d4ed8; /* primary-button background */
+  --royal: #4169e1;     /* active tab */
   --good: #15803d;
   --bad: #c0242c;
   font-family: system-ui, -apple-system, 'Segoe UI', Roboto, sans-serif;
@@ -22,7 +23,15 @@ html, body {
   color: var(--text);
 }
 
-#root { max-width: 640px; margin: 0 auto; padding: 0 12px 80px; }
+#root { max-width: 640px; margin: 0 auto; }
+
+.layout {
+  min-height: 100dvh;
+  padding: 0 12px calc(56px + env(safe-area-inset-bottom, 0px));
+}
+.layout-live {
+  padding-bottom: max(12px, env(safe-area-inset-bottom, 0px));
+}
 
 h1, h2, h3 { margin: 12px 0 8px; }
 h1 { font-size: 1.3rem; }
@@ -36,6 +45,7 @@ a { color: var(--accent); text-decoration: none; }
   align-items: center;
   gap: 12px;
   padding: 10px 0;
+  padding-top: max(10px, env(safe-area-inset-top, 0px));
   border-bottom: 1px solid var(--border);
   margin-bottom: 10px;
   position: sticky;
@@ -43,8 +53,46 @@ a { color: var(--accent); text-decoration: none; }
   background: var(--bg);
   z-index: 10;
 }
-.topbar .brand { font-weight: 700; font-size: 1.05rem; color: var(--text); }
-.topbar nav { margin-left: auto; display: flex; gap: 14px; font-size: 0.9rem; }
+.topbar .brand { font-weight: 700; font-size: 1.15rem; letter-spacing: -0.02em; color: var(--text); }
+
+.tabbar {
+  position: fixed;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  z-index: 20;
+  display: flex;
+  max-width: 640px;
+  margin: 0 auto;
+  background: var(--panel);
+  border-top: 1px solid var(--border);
+  padding-bottom: env(safe-area-inset-bottom, 0px);
+}
+.tabbar .tab {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 3px;
+  min-height: 52px;
+  padding: 8px 2px 6px;
+  color: var(--muted);
+  font-size: 0.68rem;
+  font-weight: 500;
+  line-height: 1;
+  -webkit-tap-highlight-color: transparent;
+}
+.tabbar .tab.active { color: var(--royal); font-weight: 600; }
+.tabbar svg {
+  width: 24px;
+  height: 24px;
+  fill: none;
+  stroke: currentColor;
+  stroke-width: 1.75;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+}
 
 button, .btn {
   font: inherit;

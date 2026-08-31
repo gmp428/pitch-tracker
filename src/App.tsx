@@ -1,22 +1,21 @@
-import { Link, Outlet } from 'react-router-dom'
+import { Link, Outlet, useLocation } from 'react-router-dom'
+import TabBar from './components/TabBar'
+
+function isLiveGame(pathname: string): boolean {
+  return /^\/game\/[^/]+$/.test(pathname)
+}
 
 export default function App() {
+  const { pathname } = useLocation()
+  const live = isLiveGame(pathname)
+
   return (
-    <>
+    <div className={live ? 'layout layout-live' : 'layout'}>
       <header className="topbar">
-        <Link to="/" className="brand" aria-label="Home">
-          <svg width="26" height="26" viewBox="0 0 24 24" aria-hidden="true" style={{ display: 'block' }}>
-            <path d="M4 3.5 h16 v7.5 l-8 9 -8 -9 z" fill="#ffffff" stroke="currentColor" strokeWidth="2" strokeLinejoin="round" />
-          </svg>
-        </Link>
-        <nav>
-          <Link to="/teams">Teams</Link>
-          <Link to="/pitchers">Pitchers</Link>
-          <Link to="/games">Games</Link>
-          <Link to="/settings">Settings</Link>
-        </nav>
+        <Link to="/" className="brand">VeloSync</Link>
       </header>
       <Outlet />
-    </>
+      {!live && <TabBar />}
+    </div>
   )
 }

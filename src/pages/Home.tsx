@@ -6,7 +6,6 @@ import { db, newId, now } from '../db'
 export default function Home() {
   const opponents = useLiveQuery(() => db.opponents.toArray(), [])
   const activeGames = useLiveQuery(() => db.games.where('status').equals('active').toArray(), [])
-  const pitcherCount = useLiveQuery(() => db.pitchers.count(), [])
   const [name, setName] = useState('')
 
   const addOpponent = async (e: React.FormEvent) => {
@@ -32,10 +31,9 @@ export default function Home() {
         </Link>
       ))}
 
-      <div className="row" style={{ marginTop: 12 }}>
-        <Link to="/new-game" className="btn primary grow">▶ Start a game</Link>
-        <Link to="/pitchers" className="btn grow">My pitchers{pitcherCount ? ` (${pitcherCount})` : ''}</Link>
-      </div>
+      <Link to="/new-game" className="btn primary" style={{ display: 'block', marginTop: 12 }}>
+        ▶ Start a game
+      </Link>
 
       <h2>Opposing teams</h2>
       {opponents.length === 0 && (
