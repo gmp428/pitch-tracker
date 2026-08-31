@@ -84,6 +84,8 @@ a { color: var(--accent); text-decoration: none; }
   -webkit-tap-highlight-color: transparent;
 }
 .tabbar .tab.active { color: var(--royal); font-weight: 600; }
+.tabbar .tab:focus { outline: none; }
+.tabbar .tab:focus-visible { outline: 2px solid var(--royal); outline-offset: 2px; }
 .tabbar svg {
   width: 24px;
   height: 24px;
