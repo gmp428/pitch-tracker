@@ -3,14 +3,16 @@
 // unfilled outline, with a bold interlocking "VS" monogram built from the
 // same stroke weight as the badge itself.
 export const LOGO_NAVY = '#0F172A'
+export const LOGO_RED = '#C8001A'
 
 type LogoProps = {
   size?: number
   color?: string
+  accentColor?: string
   className?: string
 }
 
-export default function Logo({ size = 26, color = LOGO_NAVY, className }: LogoProps) {
+export default function Logo({ size = 26, color = LOGO_NAVY, accentColor = LOGO_RED, className }: LogoProps) {
   return (
     <svg
       width={size}
@@ -43,12 +45,12 @@ export default function Logo({ size = 26, color = LOGO_NAVY, className }: LogoPr
           badge outline's line weight. The V's right leg and the S's upper
           stroke overlap near the vertical center so the two letters read
           as one connected mark. */}
-      <g fill="none" stroke={color} strokeWidth="3.4" strokeLinecap="round" strokeLinejoin="round">
+      <g fill="none" strokeWidth="3.4" strokeLinecap="round" strokeLinejoin="round">
         {/* V */}
-        <path d="M13 14 L19.5 30 L24.5 17.5" />
+        <path d="M13 14 L19.5 30 L24.5 17.5" stroke={accentColor} />
         {/* S — starts tucked just behind the V's lower-right leg so the
             two letters interlock near the middle of the badge. */}
-        <path d="M33.5 16.5 C29 14.5 24.5 16 24.5 19.5 C24.5 23.5 32 22.5 32 26.5 C32 30.5 26 31.5 22.5 29" />
+        <path d="M33.5 16.5 C29 14.5 24.5 16 24.5 19.5 C24.5 23.5 32 22.5 32 26.5 C32 30.5 26 31.5 22.5 29" stroke={color} />
       </g>
     </svg>
   )
