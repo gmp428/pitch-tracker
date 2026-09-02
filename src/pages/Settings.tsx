@@ -178,6 +178,7 @@ export default function Settings() {
         VeloSync — log every pitch by type, location, and result to build scouting reports
         on opposing batters and find the right pitch for each matchup.
       </p>
+      <p className="muted">VeloSync v{__APP_VERSION__}</p>
     </main>
   )
 }
