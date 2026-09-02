@@ -1,0 +1,30 @@
+name: PR Preview Cleanup
+
+on:
+  pull_request:
+    types: [closed]
+    branches: [main]
+
+permissions:
+  contents: write
+
+jobs:
+  cleanup:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Remove PR preview directory from gh-pages
+        run: |
+          git clone --branch gh-pages --single-branch \
+            "https://x-access-token:${{ secrets.GITHUB_TOKEN }}@github.com/${{ github.repository }}" \
+            gh-pages-repo
+          cd gh-pages-repo
+          DIR="pr-preview/pr-${{ github.event.number }}"
+          if [ -d "$DIR" ]; then
+            git config user.name "github-actions[bot]"
+            git config user.email "github-actions[bot]@users.noreply.github.com"
+            git rm -r --ignore-unmatch "$DIR"
+            git commit -m "Remove PR preview #${{ github.event.number }}"
+            git push origin gh-pages
+          else
+            echo "No preview directory found for PR #${{ github.event.number }}, nothing to clean up."
+          fi

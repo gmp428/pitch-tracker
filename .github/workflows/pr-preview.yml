@@ -1,0 +1,62 @@
+name: PR Preview Deploy
+
+on:
+  pull_request:
+    types: [opened, synchronize, reopened]
+    branches: [main]
+
+permissions:
+  contents: write
+  pull-requests: write
+
+concurrency:
+  group: pr-preview-${{ github.event.number }}
+  cancel-in-progress: true
+
+jobs:
+  preview:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+
+      - run: npm ci
+
+      # Build with a base path scoped to this PR's preview subdirectory so
+      # all asset URLs (JS/CSS/manifest/service worker) resolve correctly
+      # when served nested under /pitch-tracker/pr-preview/pr-<N>/
+      - name: Build (PR preview base path)
+        run: |
+          PREVIEW_BASE="/pitch-tracker/pr-preview/pr-${{ github.event.number }}/"
+          echo "Building with base=$PREVIEW_BASE"
+          npx tsc -b
+          npx vite build --base="$PREVIEW_BASE"
+          touch dist/.nojekyll
+
+      - name: Deploy preview to gh-pages subdirectory
+        uses: peaceiris/actions-gh-pages@v4
+        with:
+          github_token: ${{ secrets.GITHUB_TOKEN }}
+          publish_dir: ./dist
+          destination_dir: pr-preview/pr-${{ github.event.number }}
+          keep_files: true
+          user_name: 'github-actions[bot]'
+          user_email: 'github-actions[bot]@users.noreply.github.com'
+          commit_message: 'Deploy PR preview #${{ github.event.number }} (${{ github.sha }})'
+
+      - name: Comment preview URL on PR
+        uses: marocchino/sticky-pull-request-comment@v2
+        with:
+          header: pr-preview
+          message: |
+            🚀 **PR Preview deployed!**
+
+            Test the production build (service worker, installability, offline mode) on your phone:
+
+            👉 https://gmp428.github.io/pitch-tracker/pr-preview/pr-${{ github.event.number }}/
+
+            This preview updates automatically on every push to this PR.

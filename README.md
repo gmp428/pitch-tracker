@@ -31,3 +31,5 @@ Pushes to `main` deploy automatically to GitHub Pages via `.github/workflows/dep
 
 - Iterate on features as a web app until the workflow feels right at the field
 - Then wrap the same codebase into native iOS/Android apps with [Capacitor](https://capacitorjs.com/)
+
+<!-- test: verifying PR preview deploy workflow -->
